@@ -1,0 +1,38 @@
+<Window x:Class="LauncherPanel.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MaysLauncher — Панель управления" 
+        Height="700" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgDeep}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+            <StackPanel Margin="16">
+                <TextBlock Text="⚙️ Панель" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Accent}" Margin="0,0,0,4"/>
+                <TextBlock Text="MaysLauncher" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,0,0,24"/>
+
+                <Button x:Name="BtnNews" Content="📰 Новости" Click="BtnNews_Click" Margin="0,4" Background="{StaticResource Accent}"/>
+                <Button x:Name="BtnServers" Content="🖥️ Серверы" Click="BtnServers_Click" Margin="0,4" Background="{StaticResource Panel}" Foreground="{StaticResource Text}"/>
+                <Button x:Name="BtnRelease" Content="🚀 Релиз" Click="BtnRelease_Click" Margin="0,4" Background="{StaticResource Panel}" Foreground="{StaticResource Text}"/>
+                <Button x:Name="BtnSettings" Content="⚙️ Настройки" Click="BtnSettings_Click" Margin="0,4" Background="{StaticResource Panel}" Foreground="{StaticResource Text}"/>
+
+                <Separator Margin="0,16" Background="{StaticResource Border}"/>
+
+                <Button x:Name="BtnSaveLocal" Content="💾 Сохранить локально" Click="BtnSaveLocal_Click" Margin="0,4" Background="{StaticResource Panel}" Foreground="{StaticResource Text}"/>
+                <Button x:Name="BtnPush" Content="📤 Запушить на GitHub" Click="BtnPush_Click" Margin="0,4" Background="{StaticResource AccentDark}" Foreground="White"/>
+
+                <Separator Margin="0,16" Background="{StaticResource Border}"/>
+
+                <TextBlock x:Name="TxtStatus" Text="Готово" FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <ContentControl Grid.Column="1" x:Name="MainContent"/>
+    </Grid>
+</Window>

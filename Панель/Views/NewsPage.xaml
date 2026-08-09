@@ -1,0 +1,55 @@
+<UserControl x:Class="LauncherPanel.Views.NewsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="📰 Управление новостями" FontSize="24" FontWeight="Bold" Foreground="{StaticResource Text}" Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+            <Button x:Name="BtnAddNews" Content="➕ Добавить новость" Click="BtnAddNews_Click"/>
+            <Button x:Name="BtnDeleteNews" Content="🗑️ Удалить" Click="BtnDeleteNews_Click" Margin="8,0,0,0" Style="{StaticResource DangerButton}"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="NewsGrid" AutoGenerateColumns="False" 
+                  Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
+                  BorderBrush="{StaticResource Border}" CanUserAddRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="80"/>
+                <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="100"/>
+                <DataGridTextColumn Header="Заголовок" Binding="{Binding Title}" Width="*"/>
+                <DataGridCheckBoxColumn Header="Важно" Binding="{Binding Important}" Width="60"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Дата:" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="0,4"/>
+            <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtDate" Margin="0,4"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Заголовок:" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="0,4"/>
+            <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtTitle" Margin="0,4"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Текст:" Foreground="{StaticResource TextMuted}" VerticalAlignment="Top" Margin="0,4"/>
+            <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtContent" AcceptsReturn="True" TextWrapping="Wrap" Height="80" Margin="0,4"/>
+
+            <CheckBox Grid.Row="3" Grid.Column="1" x:Name="ChkImportant" Content="Важная новость" Foreground="{StaticResource Text}" Margin="0,8,0,0"/>
+        </Grid>
+    </Grid>
+</UserControl>
