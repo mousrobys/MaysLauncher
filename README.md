@@ -61,6 +61,7 @@
 ## 🗺️ Планы по развитию
 
 - ✅ Поддержка MRPACK (уже реализовано)
+- ⬜ Авторизация через **Ely.by** — вход по скину
 - ⬜ Встроенный редактор модов (без перезапуска игры)
 - ⬜ Интеграция с популярными сервисами для бэкапов миров
 - ⬜ Версия лаунчера для macOS и Linux (сейчас тестируем)
@@ -72,6 +73,20 @@
 1. Перейдите на страницу [Releases](https://github.com/mousrobys/MaysLauncher/releases/latest)
 2. Скачайте `MaysLauncher.exe`
 3. Запустите файл — готово!
+
+---
+
+---
+
+## 🔗 Полезные ссылки
+
+| Ресурс | Ссылка |
+|--------|--------|
+| 📢 Официальный Telegram проекта | [MaysLauncher](https://t.me/MaysLauncher) |
+| 💻 Telegram разработчика | [moysecamm](https://t.me/canyramoysecamm) |
+| 🧪 Telegram главного тестера | [Andrej](https://t.me/Andrej060610) |
+| 🎬 YouTube разработчика | [@moysecamm](https://youtube.com/@moysecamm?si=vj55FIo38d2ql4_F) |
+| 🎬 YouTube главного тестера | [@4k_andrey](https://youtube.com/@4k_andrey?si=DpLG1QIlz7_LK4BQ) |
 
 ---
 
