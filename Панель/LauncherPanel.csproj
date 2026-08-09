@@ -6,13 +6,8 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>LauncherPanel</RootNamespace>
     <AssemblyName>LauncherPanel</AssemblyName>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
 
 </Project>
