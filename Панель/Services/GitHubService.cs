@@ -18,7 +18,10 @@ public class GitHubService
     private string _repo = "MaysLauncher";
 
     private const string ConfigPath = "launcher-config.json";
-    private const string ConfigFolder = "билды exe";
+    private static string ConfigFolder =>
+        Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName
+        ?? AppDomain.CurrentDomain.BaseDirectory
+        ?? "";
 
     public GitHubService()
     {
