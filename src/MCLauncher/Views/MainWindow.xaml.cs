@@ -182,50 +182,82 @@ public partial class MainWindow : Window
 
         foreach (var news in config.News.OrderByDescending(n => n.Date).Take(5))
         {
-            var border = new Border
-            {
-                Background = news.Important ? new SolidColorBrush(Color.FromArgb(0x20, 0x4A, 0xDE, 0x80)) : FindResource("Panel") as Brush,
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(10),
-                Margin = new Thickness(0, 0, 0, 6),
-                BorderThickness = new Thickness(1),
-                BorderBrush = news.Important ? FindResource("Accent") as Brush : FindResource("BorderBrushDark") as Brush
-            };
+            NewsPanel.Children.Add(CreateNewsItem(news));
+        }
+    }
 
-            var panel = new StackPanel();
-            panel.Children.Add(new TextBlock
+    private void DisplayFullNews()
+    {
+        FullNewsPanel.Children.Clear();
+        var config = _newsService.GetConfigAsync().Result;
+        if (config?.News == null || config.News.Count == 0)
+        {
+            FullNewsPanel.Children.Add(new TextBlock
             {
-                Text = news.Title,
-                Foreground = news.Important ? FindResource("Accent") as Brush : FindResource("Fg") as Brush,
-                FontWeight = FontWeights.SemiBold,
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap
+                Text = "Новостей пока нет",
+                Foreground = FindResource("FgMuted") as Brush,
+                FontSize = 13
             });
+            return;
+        }
 
-            if (!string.IsNullOrWhiteSpace(news.Content))
-            {
-                panel.Children.Add(new TextBlock
-                {
-                    Text = news.Content,
-                    Foreground = FindResource("FgMuted") as Brush,
-                    FontSize = 11,
-                    Margin = new Thickness(0, 3, 0, 0),
-                    TextWrapping = TextWrapping.Wrap
-                });
-            }
+        foreach (var news in config.News.OrderByDescending(n => n.Date))
+        {
+            FullNewsPanel.Children.Add(CreateNewsItem(news, true));
+        }
+    }
 
-            panel.Children.Add(new TextBlock
+    private UIElement CreateNewsItem(NewsItem news, bool full = false)
+    {
+        var border = new Border
+        {
+            Background = news.Important ? new SolidColorBrush(Color.FromArgb(0x20, 0x4A, 0xDE, 0x80)) : FindResource("Panel") as Brush,
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(full ? 16 : 12),
+            Margin = new Thickness(0, 0, 0, full ? 10 : 6),
+            BorderThickness = new Thickness(1),
+            BorderBrush = news.Important ? FindResource("Accent") as Brush : FindResource("BorderBrushDark") as Brush
+        };
+
+        var panel = new StackPanel();
+
+        var headerPanel = new DockPanel();
+        var titleBlock = new TextBlock
+        {
+            Text = news.Important ? "🔔 " + news.Title : news.Title,
+            Foreground = news.Important ? FindResource("Accent") as Brush : FindResource("Fg") as Brush,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = full ? 14 : 12,
+            TextWrapping = TextWrapping.Wrap
+        };
+        DockPanel.SetDock(titleBlock, Dock.Left);
+
+        var dateBlock = new TextBlock
             {
                 Text = news.Date,
                 Foreground = FindResource("FgMuted") as Brush,
-                FontSize = 10,
-                Margin = new Thickness(0, 4, 0, 0),
+                FontSize = full ? 11 : 10,
                 HorizontalAlignment = HorizontalAlignment.Right
-            });
+            };
 
-            border.Child = panel;
-            NewsPanel.Children.Add(border);
+        headerPanel.Children.Add(dateBlock);
+        headerPanel.Children.Add(titleBlock);
+        panel.Children.Add(headerPanel);
+
+        if (!string.IsNullOrWhiteSpace(news.Content))
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = news.Content,
+                Foreground = FindResource("FgMuted") as Brush,
+                FontSize = full ? 12 : 11,
+                Margin = new Thickness(0, 6, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            });
         }
+
+        border.Child = panel;
+        return border;
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -3172,16 +3204,17 @@ public partial class MainWindow : Window
 
         PageContent.Visibility = tag == "7" ? Visibility.Visible : Visibility.Collapsed;
         PageBot.Visibility = tag == "8" ? Visibility.Visible : Visibility.Collapsed;
+        PageNews.Visibility = tag == "9" ? Visibility.Visible : Visibility.Collapsed;
 
         if (tag == "1") { RefreshInstanceStats(); LoadScreenshots(); }
         if (tag == "6")
         {
             UpdateModsSubtitle();
-            // Каталог наполняется сразу — без нажатия «Найти»
             if (_modResults.Count == 0 && _selectedInstance is not null) RunModSearchFromStart();
         }
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
+        if (tag == "9") DisplayFullNews();
     }
 
     // =====================================================================
