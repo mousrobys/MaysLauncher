@@ -1,0 +1,124 @@
+﻿<Window x:Class="MCLauncher.Views.InstanceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Новая сборка"
+        Icon="pack://application:,,,/icon=logo.ico.ico"
+        Height="600" Width="540"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="Segoe UI">
+
+    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <TextBlock x:Name="TxtTitle" Text="Новая сборка" Style="{StaticResource H1}"/>
+                <TextBlock Text="Версия игры, модлоадер и название"
+                           Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Margin="0,20,0,0">
+
+                <Border Background="{DynamicResource Bg}" CornerRadius="9" Padding="11"
+                        BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1"
+                        Margin="0,0,0,16">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Готовая сборка" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Fg}"/>
+                            <TextBlock Text="Импорт .mrpack или .zip с Modrinth"
+                                       FontSize="10.5" Foreground="{DynamicResource FgMuted}"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button Style="{StaticResource IconButton}" Content="Файл…"
+                                    Margin="0,0,8,0" Click="BtnImportPack_Click"/>
+                            <Button Style="{StaticResource IconButton}" Content="По ссылке"
+                                    Click="BtnPackUrl_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="НАЗВАНИЕ" Style="{StaticResource Caption}"/>
+                <TextBox x:Name="TxtName" Text="Новая сборка" TextChanged="TxtName_TextChanged"/>
+
+                <TextBlock Text="ВЕРСИЯ MINECRAFT" Style="{StaticResource Caption}" Margin="0,16,0,6"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="CbMcVersion" Grid.Column="0"
+                              SelectionChanged="CbMcVersion_SelectionChanged"/>
+                    <CheckBox x:Name="ChkSnapshots" Grid.Column="1" Content="Снапшоты"
+                              Margin="12,0,0,0" VerticalAlignment="Center"
+                              Checked="ChkSnapshots_Changed" Unchecked="ChkSnapshots_Changed"/>
+                </Grid>
+
+                <TextBlock Text="МОДЛОАДЕР" Style="{StaticResource Caption}" Margin="0,16,0,6"/>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="RbVanilla" Style="{StaticResource SegmentToggle}" Content="Vanilla"
+                                 IsChecked="True" Checked="Loader_Checked" Tag="0"/>
+                    <RadioButton x:Name="RbFabric" Style="{StaticResource SegmentToggle}" Content="Fabric"
+                                 Checked="Loader_Checked" Tag="1"/>
+                    <RadioButton x:Name="RbForge" Style="{StaticResource SegmentToggle}" Content="Forge"
+                                 Checked="Loader_Checked" Tag="2"/>
+                    <RadioButton x:Name="RbNeoForge" Style="{StaticResource SegmentToggle}" Content="NeoForge"
+                                 Checked="Loader_Checked" Tag="3"/>
+                </StackPanel>
+
+                <Grid x:Name="PanelLoaderVersion" Margin="0,14,0,0" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="ВЕРСИЯ ЗАГРУЗЧИКА" Style="{StaticResource Caption}"/>
+                        <ComboBox x:Name="CbLoaderVersion"/>
+                        <TextBlock x:Name="TxtLoaderHint" Text="" Foreground="{DynamicResource FgMuted}"
+                                   FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+
+                <CheckBox x:Name="ChkIsolated" Margin="0,16,0,0"
+                          Content="Изолированная сборка (своё хранилище файлов)"/>
+                <TextBlock Text="Библиотеки, ассеты и версии будут храниться внутри папки сборки. Занимает больше места, зато сборку можно скопировать целиком, а поломка не заденет остальные."
+                           Foreground="{DynamicResource FgMuted}" FontSize="10.5" Margin="27,5,0,0"
+                           TextWrapping="Wrap"/>
+
+                <TextBlock Text="ЦВЕТ МЕТКИ" Style="{StaticResource Caption}" Margin="0,16,0,6"/>
+                <ItemsControl x:Name="ItemsColors">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="30" Height="30" CornerRadius="8" Margin="0,0,8,0" Cursor="Hand"
+                                    MouseLeftButtonUp="Color_Click" Tag="{Binding Hex}"
+                                    BorderThickness="2" BorderBrush="{Binding Border}"
+                                    Background="{Binding Brush}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <Grid Grid.Row="2" Margin="0,18,0,0">
+                <TextBlock x:Name="TxtStatus" Text="" Foreground="{DynamicResource FgMuted}"
+                           FontSize="11.5" VerticalAlignment="Center" HorizontalAlignment="Left"
+                           TextWrapping="Wrap" MaxWidth="260"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnCancel" Style="{StaticResource BaseButton}" Content="Отмена"
+                            MinWidth="96" Click="BtnCancel_Click"/>
+                    <Button x:Name="BtnCreate" Style="{StaticResource AccentButton}" Content="Создать"
+                            MinWidth="128" Margin="10,0,0,0" Click="BtnCreate_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

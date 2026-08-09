@@ -1,0 +1,38 @@
+## .gitignore for .NET / WPF project
+
+# Build results
+bin/
+obj/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+# Publish
+*.publish.xml
+publish/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Debug files
+*.pdb
+*.dll.mdb
+*.exe.config
+
+# Release folder contents (keep structure but ignore build outputs)
+src/MCLauncher/bin/Release/**
+src/MCLauncher/bin/Debug/**

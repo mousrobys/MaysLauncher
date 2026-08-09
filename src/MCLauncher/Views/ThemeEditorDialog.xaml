@@ -1,0 +1,95 @@
+<Window x:Class="MCLauncher.Views.ThemeEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Своя цветовая схема"
+        Icon="pack://application:,,,/icon=logo.ico.ico"
+        Height="560" Width="620"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="Segoe UI, Tahoma, Arial">
+
+    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <StackPanel>
+                    <TextBlock Text="Своя цветовая схема" Style="{StaticResource H1}" FontSize="19"/>
+                    <TextBlock Text="Задайте цвета вручную или начните с готовой схемы"
+                               Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button Style="{StaticResource CloseButton}" Content="&#xE8BB;"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Click="BtnCancel_Click"/>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,18,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="210"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Поля цветов -->
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PanelFields" Margin="0,0,12,0"/>
+                </ScrollViewer>
+
+                <!-- Живой предпросмотр -->
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="ПРЕДПРОСМОТР" Style="{StaticResource Caption}"/>
+                    <Border x:Name="PreviewRoot" CornerRadius="11" Height="250" Padding="12"
+                            BorderThickness="1">
+                        <StackPanel>
+                            <Border x:Name="PreviewPanel" CornerRadius="8" Padding="10">
+                                <StackPanel>
+                                    <TextBlock x:Name="PreviewTitle" Text="Заголовок" FontWeight="Bold"
+                                               FontSize="13"/>
+                                    <TextBlock x:Name="PreviewMuted" Text="Второстепенный текст"
+                                               FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="PreviewAccent" CornerRadius="8" Padding="10" Margin="0,10,0,0">
+                                <TextBlock x:Name="PreviewAccentText" Text="ИГРАТЬ" FontWeight="Bold"
+                                           FontSize="12" HorizontalAlignment="Center"/>
+                            </Border>
+
+                            <Border x:Name="PreviewCard" CornerRadius="8" Padding="10" Margin="0,10,0,0"
+                                    BorderThickness="1">
+                                <TextBlock x:Name="PreviewCardText" Text="Карточка сборки" FontSize="11.5"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="ЗА ОСНОВУ" Style="{StaticResource Caption}" Margin="0,16,0,6"/>
+                    <ComboBox x:Name="CbBase" Height="34" SelectionChanged="CbBase_Changed"/>
+
+                    <CheckBox x:Name="ChkLight" Content="Светлая тема" Margin="0,14,0,0"
+                              Checked="Light_Changed" Unchecked="Light_Changed"/>
+                    <TextBlock Text="Влияет на цвет текста на кнопках и в консоли."
+                               Foreground="{DynamicResource FgMuted}" FontSize="10.5"
+                               Margin="27,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <TextBlock x:Name="TxtStatus" Text="" Foreground="{DynamicResource Danger}"
+                           FontSize="11.5" VerticalAlignment="Center" HorizontalAlignment="Left"
+                           TextWrapping="Wrap" MaxWidth="280"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource BaseButton}" Content="Отмена" MinWidth="96"
+                            Click="BtnCancel_Click"/>
+                    <Button Style="{StaticResource AccentButton}" Content="Применить" MinWidth="140"
+                            Margin="10,0,0,0" Click="BtnApply_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,165 @@
+﻿<Window x:Class="MCLauncher.Views.ModVersionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Выбор версии"
+        Icon="pack://application:,,,/icon=logo.ico.ico"
+        Height="620" Width="680"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="Segoe UI, Tahoma, Arial">
+
+    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Шапка -->
+            <Grid Grid.Row="0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Width="52" Height="52" CornerRadius="10"
+                        Background="{DynamicResource Panel}" ClipToBounds="True">
+                    <Grid>
+                        <Image x:Name="ImgIcon" Stretch="UniformToFill"/>
+                        <TextBlock x:Name="TxtInitial" FontSize="21" FontWeight="Bold"
+                                   Foreground="{DynamicResource FgMuted}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtTitle" Text="Мод" Style="{StaticResource H1}" FontSize="19"/>
+                    <TextBlock x:Name="TxtSubtitle" Text="" Foreground="{DynamicResource FgMuted}"
+                               FontSize="11.5" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <Button Grid.Column="2" Style="{StaticResource CloseButton}" Content="&#xE8BB;"
+                        VerticalAlignment="Top" Click="BtnCancel_Click"/>
+            </Grid>
+
+            <!-- Выбор версии игры и фильтры -->
+            <Border Grid.Row="1" Margin="0,16,0,0" Background="{DynamicResource Bg}" CornerRadius="10"
+                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="ВЕРСИЯ ИГРЫ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbGameVersion" Width="140" Height="34"
+                                  SelectionChanged="Filter_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                        <TextBlock Text="ЗАГРУЗЧИК" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbLoader" Width="130" Height="34"
+                                  SelectionChanged="Filter_Changed"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                        <TextBlock Text="КАНАЛ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbChannel" Width="130" Height="34"
+                                  SelectionChanged="Filter_Changed">
+                            <ComboBoxItem Content="Все" IsSelected="True" Tag="all"/>
+                            <ComboBoxItem Content="Только release" Tag="release"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <TextBlock x:Name="TxtMatchInfo" Grid.Column="3" Text="" VerticalAlignment="Bottom"
+                               HorizontalAlignment="Right" Margin="12,0,0,9"
+                               Foreground="{DynamicResource FgMuted}" FontSize="11"
+                               TextWrapping="Wrap" MaxWidth="180" TextAlignment="Right"/>
+                </Grid>
+            </Border>
+
+            <!-- Список версий -->
+            <Border Grid.Row="2" Margin="0,12,0,0" Background="{DynamicResource Bg}" CornerRadius="11"
+                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="6">
+                <Grid>
+                    <TextBlock x:Name="TxtEmpty" Text="Загружаю список версий…"
+                               Foreground="{DynamicResource FgMuted}" FontSize="12"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="440"/>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ListBox x:Name="LstVersions" Style="{StaticResource PlainListBox}"
+                                 SelectionChanged="LstVersions_SelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding RowBg}" CornerRadius="9"
+                                            Padding="12" Margin="0,0,0,6"
+                                            BorderThickness="1" BorderBrush="{Binding RowBorder}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" CornerRadius="5" Padding="7,3"
+                                                    VerticalAlignment="Center"
+                                                    Background="{Binding TypeBg}">
+                                                <TextBlock Text="{Binding TypeText}" FontSize="9.5"
+                                                           FontWeight="Bold" Foreground="{Binding TypeFg}"/>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Fg}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Details}" FontSize="10.5"
+                                                           Foreground="{DynamicResource FgMuted}" Margin="0,3,0,0"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding SizeText}" FontSize="10.5"
+                                                           Foreground="{DynamicResource FgMuted}"
+                                                           HorizontalAlignment="Right"/>
+                                                <TextBlock Text="{Binding CompatText}" FontSize="10"
+                                                           Foreground="{Binding CompatColor}" Margin="0,3,0,0"
+                                                           HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Низ -->
+            <Grid Grid.Row="3" Margin="0,14,0,0">
+                <StackPanel VerticalAlignment="Center">
+                    <CheckBox x:Name="ChkDependencies" Content="Устанавливать зависимости" IsChecked="True"/>
+                    <TextBlock x:Name="TxtDepInfo" Text="" Foreground="{DynamicResource FgMuted}"
+                               FontSize="10.5" Margin="27,4,0,0" TextWrapping="Wrap" MaxWidth="360"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                    <Button Style="{StaticResource BaseButton}" Content="Отмена" MinWidth="96"
+                            Click="BtnCancel_Click"/>
+                    <Button x:Name="BtnInstall" Style="{StaticResource AccentButton}" Content="Установить"
+                            MinWidth="160" Margin="10,0,0,0" Click="BtnInstall_Click" IsEnabled="False"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
