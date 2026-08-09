@@ -186,25 +186,43 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DisplayFullNews()
+    private async Task DisplayFullNewsAsync()
     {
         FullNewsPanel.Children.Clear();
-        var config = _newsService.GetConfigAsync().Result;
-        if (config?.News == null || config.News.Count == 0)
+        FullNewsPanel.Children.Add(new TextBlock
         {
-            FullNewsPanel.Children.Add(new TextBlock
-            {
-                Text = "Новостей пока нет",
-                Foreground = FindResource("FgMuted") as Brush,
-                FontSize = 13
-            });
-            return;
-        }
+            Text = "Загрузка...",
+            Foreground = FindResource("FgMuted") as Brush,
+            FontSize = 13
+        });
 
-        foreach (var news in config.News.OrderByDescending(n => n.Date))
+        LauncherConfig? config = null;
+        try
         {
-            FullNewsPanel.Children.Add(CreateNewsItem(news, true));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            config = await _newsService.GetConfigAsync().ConfigureAwait(false);
         }
+        catch { }
+
+        Dispatcher.Invoke(() =>
+        {
+            FullNewsPanel.Children.Clear();
+            if (config?.News == null || config.News.Count == 0)
+            {
+                FullNewsPanel.Children.Add(new TextBlock
+                {
+                    Text = "Новостей пока нет",
+                    Foreground = FindResource("FgMuted") as Brush,
+                    FontSize = 13
+                });
+                return;
+            }
+
+            foreach (var news in config.News.OrderByDescending(n => n.Date))
+            {
+                FullNewsPanel.Children.Add(CreateNewsItem(news, true));
+            }
+        });
     }
 
     private UIElement CreateNewsItem(NewsItem news, bool full = false)
@@ -3214,7 +3232,7 @@ public partial class MainWindow : Window
         }
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
-        if (tag == "9") DisplayFullNews();
+        if (tag == "9") _ = DisplayFullNewsAsync();
     }
 
     // =====================================================================
