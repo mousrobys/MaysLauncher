@@ -1,4 +1,12 @@
 {
-  "news": [],
+  "news": [
+    {
+      "id": "5c496474",
+      "title": "Новая новость",
+      "content": "Текст новости...",
+      "date": "2026-08-10",
+      "important": false
+    }
+  ],
   "sponsorServers": []
 }
