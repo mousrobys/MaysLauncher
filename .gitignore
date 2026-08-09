@@ -36,3 +36,6 @@ Thumbs.db
 # Release folder contents (keep structure but ignore build outputs)
 src/MCLauncher/bin/Release/**
 src/MCLauncher/bin/Debug/**
+
+# Built executable folder
+билды exe/
