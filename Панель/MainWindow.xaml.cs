@@ -22,8 +22,8 @@ public partial class MainWindow : Window
         _github = new GitHubService();
         _config = new LauncherConfig();
 
-        _newsPage = new NewsPage(_config);
-        _serversPage = new ServersPage(_config);
+        _newsPage = new NewsPage(_config, _github);
+        _serversPage = new ServersPage(_config, _github);
         _releasePage = new ReleasePage(_github);
         _settingsPage = new SettingsPage(_github, (owner, repo) =>
         {

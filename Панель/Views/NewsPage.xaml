@@ -7,6 +7,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="📰 Управление новостями" FontSize="24" FontWeight="Bold" Foreground="{StaticResource Text}" Margin="0,0,0,16"/>
@@ -14,6 +15,7 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
             <Button x:Name="BtnAddNews" Content="➕ Добавить новость" Click="BtnAddNews_Click"/>
             <Button x:Name="BtnDeleteNews" Content="🗑️ Удалить" Click="BtnDeleteNews_Click" Margin="8,0,0,0" Style="{StaticResource DangerButton}"/>
+            <Button x:Name="BtnPublish" Content="🚀 Опубликовать" Click="BtnPublish_Click" Margin="8,0,0,0" Background="#238636" Foreground="White"/>
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="NewsGrid" AutoGenerateColumns="False" 
@@ -51,5 +53,7 @@
 
             <CheckBox Grid.Row="3" Grid.Column="1" x:Name="ChkImportant" Content="Важная новость" Foreground="{StaticResource Text}" Margin="0,8,0,0"/>
         </Grid>
+
+        <TextBlock Grid.Row="4" x:Name="TxtPublishStatus" Text="" Margin="0,12,0,0" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
     </Grid>
 </UserControl>

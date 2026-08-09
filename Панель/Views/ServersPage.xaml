@@ -7,6 +7,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="🖥️ Спонсорские серверы" FontSize="24" FontWeight="Bold" Foreground="{StaticResource Text}" Margin="0,0,0,16"/>
@@ -14,6 +15,7 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
             <Button x:Name="BtnAddServer" Content="➕ Добавить сервер" Click="BtnAddServer_Click"/>
             <Button x:Name="BtnDeleteServer" Content="🗑️ Удалить" Click="BtnDeleteServer_Click" Margin="8,0,0,0" Style="{StaticResource DangerButton}"/>
+            <Button x:Name="BtnPublish" Content="🚀 Опубликовать" Click="BtnPublish_Click" Margin="8,0,0,0" Background="#238636" Foreground="White"/>
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="ServersGrid" AutoGenerateColumns="False" 
@@ -59,5 +61,7 @@
 
             <CheckBox Grid.Row="5" Grid.Column="1" x:Name="ChkFeatured" Content="Спонсорский сервер" Foreground="{StaticResource Text}" Margin="0,8,0,0" IsChecked="True"/>
         </Grid>
+
+        <TextBlock Grid.Row="4" x:Name="TxtPublishStatus" Text="" Margin="0,12,0,0" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
     </Grid>
 </UserControl>
