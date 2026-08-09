@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly ModpackService _modpacks;
     private readonly BotManager _bots;
     private readonly GameSessionManager _sessions = new();
+    private readonly NewsService _newsService;
 
     private LauncherSettings _settings = new();
     private MinecraftAccount? _account;
@@ -57,6 +58,7 @@ public partial class MainWindow : Window
         _mods = new ModService(http);
         _modpacks = new ModpackService(http);
         _bots = new BotManager(http);
+        _newsService = new NewsService(http);
 
         _downloads.Progress += OnProgress;
         _java.Progress += OnProgress;
@@ -148,6 +150,82 @@ public partial class MainWindow : Window
             System.Windows.Threading.DispatcherPriority.Loaded);
 
         _ = RefreshServersAsync();
+        _ = LoadNewsAsync();
+    }
+
+    private async Task LoadNewsAsync()
+    {
+        try
+        {
+            var config = await _newsService.GetConfigAsync();
+            Dispatcher.Invoke(() => DisplayNews(config));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Не удалось загрузить новости: " + ex.Message);
+        }
+    }
+
+    private void DisplayNews(LauncherConfig config)
+    {
+        NewsPanel.Children.Clear();
+        if (config.News == null || config.News.Count == 0)
+        {
+            NewsPanel.Children.Add(new TextBlock
+            {
+                Text = "Новостей пока нет",
+                Foreground = FindResource("FgMuted") as Brush,
+                FontSize = 12
+            });
+            return;
+        }
+
+        foreach (var news in config.News.OrderByDescending(n => n.Date).Take(5))
+        {
+            var border = new Border
+            {
+                Background = news.Important ? new SolidColorBrush(Color.FromArgb(0x20, 0x4A, 0xDE, 0x80)) : FindResource("Panel") as Brush,
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(10),
+                Margin = new Thickness(0, 0, 0, 6),
+                BorderThickness = new Thickness(1),
+                BorderBrush = news.Important ? FindResource("Accent") as Brush : FindResource("BorderBrushDark") as Brush
+            };
+
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = news.Title,
+                Foreground = news.Important ? FindResource("Accent") as Brush : FindResource("Fg") as Brush,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            if (!string.IsNullOrWhiteSpace(news.Content))
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = news.Content,
+                    Foreground = FindResource("FgMuted") as Brush,
+                    FontSize = 11,
+                    Margin = new Thickness(0, 3, 0, 0),
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = news.Date,
+                Foreground = FindResource("FgMuted") as Brush,
+                FontSize = 10,
+                Margin = new Thickness(0, 4, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Right
+            });
+
+            border.Child = panel;
+            NewsPanel.Children.Add(border);
+        }
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -1528,7 +1606,20 @@ public partial class MainWindow : Window
     {
         var servers = ServerCatalog.LoadAll();
 
-        // Сначала показываем «проверяю», затем обновляем по мере ответов
+        try
+        {
+            var sponsors = await ServerCatalog.LoadSponsorServersAsync(App.Http);
+            if (sponsors.Count > 0)
+            {
+                servers = servers.Where(s => !s.Featured).ToList();
+                servers.InsertRange(0, sponsors);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Не удалось загрузить спонсорские серверы: " + ex.Message);
+        }
+
         var views = servers.Select(s => CreateServerView(s, null)).ToList();
         ItemsServers.ItemsSource = views;
 

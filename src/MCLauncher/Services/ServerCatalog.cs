@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using MCLauncher.Models;
+using System.Net.Http;
 
 namespace MCLauncher.Services;
 
@@ -64,4 +65,37 @@ public static class ServerCatalog
         list.AddRange(LoadUserServers());
         return list;
     }
+
+    /// <summary>Загрузить спонсорские серверы из удалённого конфига.</summary>
+    public static async Task<List<ServerEntry>> LoadSponsorServersAsync(HttpClient http)
+    {
+        try
+        {
+            const string url = "https://raw.githubusercontent.com/mousrobys/MaysLauncher/master/launcher-config.json";
+            var response = await http.GetStringAsync(url);
+            var config = System.Text.Json.JsonSerializer.Deserialize<LauncherConfig>(response, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (config?.SponsorServers == null) return new List<ServerEntry>();
+
+            return config.SponsorServers.Select(s => new ServerEntry
+            {
+                Name = s.Name,
+                Address = s.Address,
+                Description = s.Description,
+                Site = s.Site,
+                RequiredVersion = s.RequiredVersion,
+                Featured = s.Featured,
+                Loader = LoaderKind.Vanilla
+            }).ToList();
+        }
+        catch
+        {
+            return new List<ServerEntry>();
+        }
+    }
 }
+
+

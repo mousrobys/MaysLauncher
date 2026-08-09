@@ -202,6 +202,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
@@ -253,8 +254,21 @@
                             </Grid>
                         </Border>
 
+                        <!-- Новости -->
+                        <Border Grid.Row="2" Margin="0,14,0,0" CornerRadius="12" Background="{DynamicResource Panel}"
+                                BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="📰 Новости" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <StackPanel x:Name="NewsPanel" Grid.Row="1"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Быстрые действия -->
-                        <Grid Grid.Row="2" Margin="0,14,0,0" VerticalAlignment="Top">
+                        <Grid Grid.Row="3" Margin="0,14,0,0" VerticalAlignment="Top">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
