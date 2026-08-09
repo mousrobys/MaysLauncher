@@ -21,70 +21,61 @@
                     <TextBlock Text="&#xF28B;" FontFamily="Segoe MDL2 Assets" FontSize="20" VerticalAlignment="Center" Foreground="{StaticResource Green}"/>
                     <TextBlock Text="Launcher Panel" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="BtnSave" Content="Сохранить" Click="BtnSave_Click" Margin="0,0,8,0"/>
-                    <Button x:Name="BtnPublish" Content="Опубликовать" Click="BtnPublish_Click" Background="#238636"/>
-                </StackPanel>
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" x:Name="MainTabs" Background="Transparent" BorderThickness="0">
+        <TabControl Grid.Row="1" x:Name="MainTabs" Background="{StaticResource Bg}" BorderThickness="0">
             <TabItem Header="&#xF28B; Новости">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-                    <StackPanel>
-                        <Button Content="+ Добавить новость" Click="BtnAddNews_Click" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="12,6"/>
-                        <DataGrid x:Name="NewsGrid" AutoGenerateColumns="False" IsReadOnly="False"
-                                  CanUserAddRows="False" SelectionMode="Single" MinHeight="200">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="100"/>
-                                <DataGridTextColumn Header="Заголовок" Binding="{Binding Title}" Width="*"/>
-                                <DataGridTextColumn Header="Текст" Binding="{Binding Content}" Width="*"/>
-                                <DataGridCheckBoxColumn Header="Важно" Binding="{Binding Important}" Width="60"/>
-                                <DataGridTemplateColumn Header="" Width="40">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" Click="BtnDeleteNews_Click"
-                                                    Background="Transparent" Foreground="{StaticResource Red}" BorderThickness="0"
-                                                    Cursor="Hand" Padding="4"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </StackPanel>
-                </ScrollViewer>
+                <Grid Background="{StaticResource Bg}" Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Content="+ Создать новость" Click="BtnCreateNews_Click" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="12,6"/>
+
+                    <DataGrid Grid.Row="1" x:Name="NewsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="100"/>
+                            <DataGridTextColumn Header="Заголовок" Binding="{Binding Title}" Width="*"/>
+                            <DataGridTextColumn Header="Текст" Binding="{Binding Content}" Width="*"/>
+                            <DataGridTemplateColumn Header="Важно" Width="70">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Important, Converter={StaticResource BoolToMarkConverter}}" FontSize="16" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </TabItem>
 
             <TabItem Header="&#xE968; Серверы">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-                    <StackPanel>
-                        <Button Content="+ Добавить сервер" Click="BtnAddServer_Click" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="12,6"/>
-                        <DataGrid x:Name="ServersGrid" AutoGenerateColumns="False" IsReadOnly="False"
-                                  CanUserAddRows="False" SelectionMode="Single" MinHeight="200">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Название" Binding="{Binding Name}" Width="120"/>
-                                <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="150"/>
-                                <DataGridTextColumn Header="Версия" Binding="{Binding RequiredVersion}" Width="80"/>
-                                <DataGridTextColumn Header="Описание" Binding="{Binding Description}" Width="*"/>
-                                <DataGridTextColumn Header="Сайт" Binding="{Binding Site}" Width="150"/>
-                                <DataGridTemplateColumn Header="" Width="40">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" Click="BtnDeleteServer_Click"
-                                                    Background="Transparent" Foreground="{StaticResource Red}" BorderThickness="0"
-                                                    Cursor="Hand" Padding="4"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </StackPanel>
-                </ScrollViewer>
+                <Grid Background="{StaticResource Bg}" Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Content="+ Добавить сервер" Click="BtnAddServer_Click" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="12,6"/>
+
+                    <DataGrid Grid.Row="1" x:Name="ServersGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Название" Binding="{Binding Name}" Width="120"/>
+                            <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="150"/>
+                            <DataGridTextColumn Header="Версия" Binding="{Binding RequiredVersion}" Width="80"/>
+                            <DataGridTextColumn Header="Описание" Binding="{Binding Description}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </TabItem>
 
-            <TabItem Header="&#xE74C; Настройки">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
-                    <StackPanel MaxWidth="500" HorizontalAlignment="Left">
+            <TabItem Header="&#xE713; Настройки">
+                <ScrollViewer Background="{StaticResource Bg}" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16" MaxWidth="500" HorizontalAlignment="Left">
                         <TextBlock Text="GitHub" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,12"/>
                         <TextBlock Text="Owner" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
                         <TextBox x:Name="TxtOwner" Text="mousrobys"/>
@@ -92,8 +83,10 @@
                         <TextBox x:Name="TxtRepo" Text="MaysLauncher"/>
                         <TextBlock Text="Personal Access Token" Foreground="{StaticResource Muted}" Margin="0,8,0,4"/>
                         <TextBox x:Name="TxtToken"/>
-                        <Button Content="Сохранить настройки" Click="BtnSaveSettings_Click" HorizontalAlignment="Left" Margin="0,16,0,0" Padding="12,6"/>
-                        <Button Content="Проверить подключение" Click="BtnTestConnection_Click" HorizontalAlignment="Left" Margin="0,8,0,0" Padding="12,6" Background="{StaticResource Card}" Foreground="{StaticResource Text}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <Button Content="Сохранить" Click="BtnSaveSettings_Click" Padding="12,6"/>
+                            <Button Content="Проверить подключение" Click="BtnTestConnection_Click" Margin="8,0,0,0" Padding="12,6" Background="{StaticResource Card}" Foreground="{StaticResource Text}"/>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

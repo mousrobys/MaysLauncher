@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 
 namespace LauncherPanel;
 
@@ -32,6 +34,18 @@ public class ConfigData
     public List<ServerItem> SponsorServers { get; set; } = new();
 }
 
+public class BoolToMarkConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return (bool)value ? "✓" : "✗";
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public partial class MainWindow : Window
 {
     private const string SettingsFile = "panel-settings.json";
@@ -43,6 +57,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Resources.Add("BoolToMarkConverter", new BoolToMarkConverter());
         Loaded += MainWindow_Loaded;
     }
 
@@ -98,31 +113,58 @@ public partial class MainWindow : Window
 
     private string GetBasePath()
     {
-        var dir = AppDomain.CurrentDomain.BaseDirectory;
-        return Directory.GetParent(dir)?.FullName ?? dir;
+        return Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName ?? AppDomain.CurrentDomain.BaseDirectory;
     }
 
-    private async void BtnPublish_Click(object sender, RoutedEventArgs e)
+    private void BtnCreateNews_Click(object sender, RoutedEventArgs e)
     {
-        BtnPublish.IsEnabled = false;
-        SetStatus("Публикация...");
+        var dialog = new NewsDialog();
+        if (dialog.ShowDialog() == true)
+        {
+            var news = dialog.News;
+            _config.News.Insert(0, news);
+            RefreshGrids();
 
+            if (dialog.ShouldPublish)
+                SaveAndPublish(news);
+            else
+                SaveLocal(news);
+        }
+    }
+
+    private void SaveLocal(NewsItem news)
+    {
         try
         {
-            var success = await PublishConfigAsync();
-            SetStatus(success ? "Опубликовано!" : "Ошибка публикации");
+            var configPath = Path.Combine(GetBasePath(), "launcher-config.json");
+            var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(configPath, json);
+            SetStatus("Новость сохранена локально");
         }
         catch (Exception ex)
         {
-            SetStatus($"Ошибка: {ex.Message}");
-        }
-        finally
-        {
-            BtnPublish.IsEnabled = true;
+            SetStatus("Ошибка: " + ex.Message);
         }
     }
 
-    private async Task<bool> PublishConfigAsync()
+    private async void SaveAndPublish(NewsItem news)
+    {
+        try
+        {
+            var configPath = Path.Combine(GetBasePath(), "launcher-config.json");
+            var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(configPath, json);
+            SetStatus("Новость сохранена локально");
+
+            await PublishToGitHub(news.Title);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Ошибка: " + ex.Message);
+        }
+    }
+
+    private async Task PublishToGitHub(string title)
     {
         try
         {
@@ -142,7 +184,7 @@ public partial class MainWindow : Window
                 {
                     var content = await getResponse.Content.ReadAsStringAsync();
                     var doc = JsonDocument.Parse(content);
-                    sha = doc.RootElement.GetProperty("content").GetString();
+                    sha = doc.RootElement.TryGetProperty("sha", out var shaElem) ? shaElem.GetString() : null;
                 }
             }
             catch { }
@@ -152,47 +194,26 @@ public partial class MainWindow : Window
             http2.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _token);
             http2.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 
-            var body = new { message = $"Update config: {DateTime.Now:yyyy-MM-dd HH:mm}", content = base64, sha = sha };
+            var body = new { message = $"News: {title} ({DateTime.Now:yyyy-MM-dd HH:mm})", content = base64, sha };
             var bodyJson = JsonSerializer.Serialize(body);
             var content_req = new StringContent(bodyJson, Encoding.UTF8, "application/json");
 
             var url = $"https://api.github.com/repos/{_owner}/{_repo}/contents/launcher-config.json";
             var response = await http2.PutAsync(url, content_req);
-            return response.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var configPath = Path.Combine(GetBasePath(), "launcher-config.json");
-            var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(configPath, json);
-            SetStatus("Сохранено локально");
+            if (response.IsSuccessStatusCode)
+            {
+                SetStatus("✓ Новость опубликована на GitHub!");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                SetStatus("Ошибка GitHub: " + response.StatusCode);
+            }
         }
         catch (Exception ex)
         {
-            SetStatus($"Ошибка: {ex.Message}");
-        }
-    }
-
-    private void BtnAddNews_Click(object sender, RoutedEventArgs e)
-    {
-        _config.News.Insert(0, new NewsItem { Title = "Новая новость", Content = "Текст..." });
-        RefreshGrids();
-    }
-
-    private void BtnDeleteNews_Click(object sender, RoutedEventArgs e)
-    {
-        if (NewsGrid.SelectedItem is NewsItem item)
-        {
-            _config.News.Remove(item);
-            RefreshGrids();
+            SetStatus("Ошибка публикации: " + ex.Message);
         }
     }
 
@@ -202,16 +223,7 @@ public partial class MainWindow : Window
         RefreshGrids();
     }
 
-    private void BtnDeleteServer_Click(object sender, RoutedEventArgs e)
-    {
-        if (ServersGrid.SelectedItem is ServerItem item)
-        {
-            _config.SponsorServers.Remove(item);
-            RefreshGrids();
-        }
-    }
-
-    private void BtnSaveSettings_Click(object sender, RoutedEventArgs e)
+    private async void BtnSaveSettings_Click(object sender, RoutedEventArgs e)
     {
         _owner = TxtOwner.Text.Trim();
         _repo = TxtRepo.Text.Trim();
@@ -225,7 +237,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus($"Ошибка: {ex.Message}");
+            SetStatus("Ошибка: " + ex.Message);
         }
     }
 
@@ -248,7 +260,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus($"Ошибка: {ex.Message}");
+            SetStatus("Ошибка: " + ex.Message);
         }
         finally
         {
