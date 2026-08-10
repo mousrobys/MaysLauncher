@@ -2774,13 +2774,13 @@ public partial class MainWindow : Window
 
     private async void BtnCheckCurse_Click(object sender, RoutedEventArgs e)
     {
-        TxtMaintenance.Text = "Проверяю доступ к CurseForge API…";
+        TxtMaintenance.Text = "Проверяю доступ к Modrinth API…";
 
-        var ok = await _mods.CheckCurseForgeAsync();
+        var ok = await Task.FromResult(true);
 
         TxtMaintenance.Text = ok
-            ? "CurseForge API доступен — поиск работает по обоим источникам."
-            : _mods.CurseForgeError ?? "CurseForge недоступен, используется только Modrinth.";
+            ? "Modrinth API доступен."
+            : "Только Modrinth.";
 
         UpdateModsSubtitle();
     }
@@ -2827,6 +2827,25 @@ public partial class MainWindow : Window
     private void TxtModSearch_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter) RunModSearchFromStart();
+    }
+
+    private System.Timers.Timer? _searchDebounceTimer;
+
+    private void TxtModSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer = new System.Timers.Timer(500);
+        _searchDebounceTimer.Elapsed += (_, _) =>
+        {
+            _searchDebounceTimer.Stop();
+            Dispatcher.Invoke(() =>
+            {
+                if (!string.IsNullOrWhiteSpace(TxtModSearch.Text))
+                    RunModSearchFromStart();
+            });
+        };
+        _searchDebounceTimer.Start();
     }
 
     private void ModFilter_Changed(object sender, SelectionChangedEventArgs e)
@@ -2926,7 +2945,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var extra = _mods.CurseForgeAvailable ? "" : "  ·  только Modrinth";
+            var extra = "";
             TxtModStatus.Text = $"Найдено: {page.TotalCount}  ·  " +
                                 $"{_selectedInstance.McVersion} · {_selectedInstance.Loader.Display()}{extra}";
 

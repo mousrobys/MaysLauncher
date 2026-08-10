@@ -1632,7 +1632,7 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <Button Style="{StaticResource IconButton}" Content="Очистить кэш"
                                                         Margin="0,0,8,0" Click="BtnClearCache_Click"/>
-                                                <Button Style="{StaticResource IconButton}" Content="Проверить CurseForge"
+                                                <Button Style="{StaticResource IconButton}" Content="Проверить Modrinth"
                                                         Margin="0,0,8,0" Click="BtnCheckCurse_Click"/>
                                                 <Button Style="{StaticResource DangerButton}" Content="Сбросить настройки"
                                                         Click="BtnResetSettings_Click"/>
@@ -1696,7 +1696,7 @@
                         <Grid Grid.Row="0">
                             <StackPanel>
                                 <TextBlock Text="Моды" Style="{StaticResource H1}"/>
-                                <TextBlock x:Name="TxtModsSubtitle" Text="Modrinth и CurseForge"
+                                <TextBlock x:Name="TxtModsSubtitle" Text="Modrinth"
                                            Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -1718,6 +1718,7 @@
 
                             <TextBox x:Name="TxtModSearch" Grid.Column="0" Height="38"
                                      KeyDown="TxtModSearch_KeyDown"
+                                     TextChanged="TxtModSearch_TextChanged"
                                      ToolTip="Название мода. Пустой запрос покажет самые популярные."/>
 
                             <ComboBox x:Name="CbModType" Grid.Column="1" Width="146" Height="38" Margin="8,0,0,0"
@@ -1731,7 +1732,7 @@
                                       SelectionChanged="ModFilter_Changed">
                                 <ComboBoxItem Content="Все источники" IsSelected="True" Tag="all"/>
                                 <ComboBoxItem Content="Modrinth" Tag="modrinth"/>
-                                <ComboBoxItem Content="CurseForge" Tag="curseforge"/>
+                                
                             </ComboBox>
 
                             <Button x:Name="BtnModSearch" Grid.Column="3" Style="{StaticResource AccentButton}"

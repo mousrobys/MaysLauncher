@@ -41,6 +41,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="icon=logo.ico.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="System.IO" />
     <Using Include="System.Net.Http" />
     <Using Include="System.Collections.Generic" />
