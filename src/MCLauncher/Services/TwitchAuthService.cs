@@ -86,7 +86,15 @@ public sealed class TwitchAuthService : IDisposable
                 var token = ExtractTokenFromUrl(request.Url?.ToString() ?? "");
 
                 var response = context.Response;
-                var html = "<html><body><script>window.close()</script><h2>Авторизация успешна! Можно закрыть это окно.</h2></body></html>";
+                var html = @"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Twitch Auth</title>
+<style>body{font-family:Segoe UI,sans-serif;background:#0e0e10;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}
+.container{padding:40px;border-radius:12px;background:#18181b;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
+.btn{display:inline-block;background:#9146ff;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;transition:background .2s}
+.btn:hover{background:#772ce8}</style></head><body><div class='container'>
+<h1>Авторизация успешна!</h1><p>Токен получен. Можно вернуться в лаунчер.</p>
+<a class='btn' href='#' onclick='window.close()'>Вернуться в приложение</a>
+</div></body></html>";
                 var buffer = Encoding.UTF8.GetBytes(html);
                 response.ContentLength64 = buffer.Length;
                 response.ContentType = "text/html; charset=utf-8";

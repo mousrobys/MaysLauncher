@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     private readonly ModpackService _modpacks;
     private readonly BotManager _bots;
     private readonly GameSessionManager _sessions = new();
-    private readonly NewsService _newsService;
     private readonly TwitchAuthService _twitchAuth;
     private readonly TwitchStreamService _twitchStream;
 
@@ -64,7 +63,6 @@ public partial class MainWindow : Window
         _mods = new ModService(http);
         _modpacks = new ModpackService(http);
         _bots = new BotManager(http);
-        _newsService = new NewsService(http);
         _twitchAuth = new TwitchAuthService();
         _twitchStream = new TwitchStreamService(http);
         _twitchStream.StreamStatusChanged += OnTwitchStreamChanged;
@@ -90,7 +88,7 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ЗАПУСК ПРИЛОЖЕНИЯ
+    //  ������ ����������
     // =====================================================================
 
     private async void OnLoadedAsync(object sender, RoutedEventArgs e)
@@ -98,7 +96,7 @@ public partial class MainWindow : Window
         _initializing = true;
         _settings = SettingsService.Load();
 
-        // Восстанавливаем свою схему, если она была
+        // ��������������� ���� �����, ���� ��� ����
         if (!string.IsNullOrWhiteSpace(_settings.CustomThemeJson))
         {
             try
@@ -106,7 +104,7 @@ public partial class MainWindow : Window
                 ThemeService.CustomPreset =
                     System.Text.Json.JsonSerializer.Deserialize<ThemePreset>(_settings.CustomThemeJson);
             }
-            catch (Exception ex) { Log.Warn("Своя тема повреждена: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("���� ���� ����������: " + ex.Message); }
         }
 
         ThemeService.ApplyTheme(_settings.Theme);
@@ -118,7 +116,7 @@ public partial class MainWindow : Window
         ApplyBanner();
         ApplyWindowBackground();
 
-        AppendLog("MaysLauncher запущен. Папка: " + _settings.GameDir);
+        AppendLog("MaysLauncher �������. �����: " + _settings.GameDir);
 
         _uptimeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _uptimeTimer.Tick += (_, _) => UpdateUptimeBadge();
@@ -135,15 +133,14 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    SetStage("Обновляю сессию Microsoft...");
+                    SetStage("�������� ������ Microsoft...");
                     var refreshed = await _auth.RefreshAsync(saved.MicrosoftRefreshToken!);
                     AccountStorage.Save(refreshed);
                     SetAccount(refreshed, refreshSkin: true);
                 }
-                catch (Exception ex)
+catch (Exception ex)
                 {
                     AppendLog("Не удалось обновить сессию: " + ex.Message);
-                    TxtAuthState.Text = "Сессия истекла — войдите заново.";
                 }
                 finally { HideProgress(); }
             }
@@ -154,12 +151,11 @@ public partial class MainWindow : Window
         _initializing = false;
         UpdateRunStateUi();
 
-        // Колесо мыши не должно менять значения в списках при прокрутке страницы
+        // ������ ���� �� ������ ������ �������� � ������� ��� ��������� ��������
         Dispatcher.BeginInvoke(new Action(() => SetupWheelHandling(this)),
             System.Windows.Threading.DispatcherPriority.Loaded);
 
         _ = RefreshServersAsync();
-        _ = LoadNewsAsync();
         InitializeTwitch();
     }
 
@@ -201,7 +197,7 @@ public partial class MainWindow : Window
                 $"-Command \"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
                 "$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastToastTemplateType]::ToastText02); " +
                 "$text = $template.GetElementsByTagName('text'); " +
-                "$text[0].AppendChild($template.CreateTextNode('moysecamm_tw начинает стрим!')) | Out-Null; " +
+                "$text[0].AppendChild($template.CreateTextNode('moysecamm_tw �������� �����!')) | Out-Null; " +
                 "$text[1].AppendChild($template.CreateTextNode('{info.Title}')) | Out-Null; " +
                 "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); " +
                 "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('MaysLauncher').Show($toast)\"")
@@ -217,140 +213,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task LoadNewsAsync()
-    {
-        try
-        {
-            var config = await _newsService.GetConfigAsync();
-            Dispatcher.Invoke(() => DisplayNews(config));
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Не удалось загрузить новости: " + ex.Message);
-        }
-    }
-
-    private void DisplayNews(LauncherConfig config)
-    {
-        NewsPanel.Children.Clear();
-        if (config.News == null || config.News.Count == 0)
-        {
-            NewsPanel.Children.Add(new TextBlock
-            {
-                Text = "Новостей пока нет",
-                Foreground = FindResource("FgMuted") as Brush,
-                FontSize = 12
-            });
-            return;
-        }
-
-        foreach (var news in config.News.OrderByDescending(n => n.Date).Take(5))
-        {
-            NewsPanel.Children.Add(CreateNewsItem(news));
-        }
-    }
-
-    private async Task DisplayFullNewsAsync()
-    {
-        FullNewsPanel.Children.Clear();
-        FullNewsPanel.Children.Add(new TextBlock
-        {
-            Text = "Загрузка...",
-            Foreground = FindResource("FgMuted") as Brush,
-            FontSize = 13
-        });
-
-        LauncherConfig? config = null;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            config = await _newsService.GetConfigAsync().ConfigureAwait(false);
-        }
-        catch { }
-
-        Dispatcher.Invoke(() =>
-        {
-            FullNewsPanel.Children.Clear();
-            if (config?.News == null || config.News.Count == 0)
-            {
-                FullNewsPanel.Children.Add(new TextBlock
-                {
-                    Text = "Новостей пока нет",
-                    Foreground = FindResource("FgMuted") as Brush,
-                    FontSize = 13
-                });
-                return;
-            }
-
-            foreach (var news in config.News.OrderByDescending(n => n.Date))
-            {
-                FullNewsPanel.Children.Add(CreateNewsItem(news, true));
-            }
-        });
-    }
-
-    private UIElement CreateNewsItem(NewsItem news, bool full = false)
-    {
-        var border = new Border
-        {
-            Background = news.Important ? new SolidColorBrush(Color.FromArgb(0x20, 0x4A, 0xDE, 0x80)) : FindResource("Panel") as Brush,
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(full ? 16 : 12),
-            Margin = new Thickness(0, 0, 0, full ? 10 : 6),
-            BorderThickness = new Thickness(1),
-            BorderBrush = news.Important ? FindResource("Accent") as Brush : FindResource("BorderBrushDark") as Brush
-        };
-
-        var panel = new StackPanel();
-
-        var headerPanel = new DockPanel();
-        var titleBlock = new TextBlock
-        {
-            Text = news.Important ? "🔔 " + news.Title : news.Title,
-            Foreground = news.Important ? FindResource("Accent") as Brush : FindResource("Fg") as Brush,
-            FontWeight = FontWeights.SemiBold,
-            FontSize = full ? 14 : 12,
-            TextWrapping = TextWrapping.Wrap
-        };
-        DockPanel.SetDock(titleBlock, Dock.Left);
-
-        var dateBlock = new TextBlock
-            {
-                Text = news.Date,
-                Foreground = FindResource("FgMuted") as Brush,
-                FontSize = full ? 11 : 10,
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-
-        headerPanel.Children.Add(dateBlock);
-        headerPanel.Children.Add(titleBlock);
-        panel.Children.Add(headerPanel);
-
-        if (!string.IsNullOrWhiteSpace(news.Content))
-        {
-            panel.Children.Add(new TextBlock
-            {
-                Text = news.Content,
-                Foreground = FindResource("FgMuted") as Brush,
-                FontSize = full ? 12 : 11,
-                Margin = new Thickness(0, 6, 0, 0),
-                TextWrapping = TextWrapping.Wrap
-            });
-        }
-
-        border.Child = panel;
-        return border;
-    }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_sessions.AnyRunning)
         {
             var r = MessageBox.Show(
-                $"Сейчас запущено игр: {_sessions.RunningCount}.\n\n" +
-                "Закрыть лаунчер вместе с игрой?\n" +
-                "«Нет» — лаунчер закроется, игра продолжит работать.",
-                "Игра запущена", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                $"������ �������� ���: {_sessions.RunningCount}.\n\n" +
+                "������� ������� ������ � �����?\n" +
+                "���� � ������� ���������, ���� ��������� ��������.",
+                "���� ��������", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
             if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
             if (r == MessageBoxResult.Yes) _sessions.StopAllAsync().GetAwaiter().GetResult();
@@ -361,7 +233,7 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  НАСТРОЙКИ <-> UI
+    //  ��������� <-> UI
     // =====================================================================
 
     private void ApplySettingsToUi()
@@ -369,8 +241,8 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(_settings.GameDir)) _settings.GameDir = LauncherPaths.Root;
 
         SldMemory.Value = Math.Clamp(_settings.MaxMemoryMb, 1024, 16384);
-        TxtMemory.Text = $"{_settings.MaxMemoryMb} МБ";
-        TxtBadgeRam.Text = $"RAM: {_settings.MaxMemoryMb} МБ";
+        TxtMemory.Text = $"{_settings.MaxMemoryMb} ��";
+        TxtBadgeRam.Text = $"RAM: {_settings.MaxMemoryMb} ��";
         TxtWidth.Text = _settings.WindowWidth.ToString();
         TxtHeight.Text = _settings.WindowHeight.ToString();
         ChkFullscreen.IsChecked = _settings.Fullscreen;
@@ -397,8 +269,8 @@ public partial class MainWindow : Window
 
         var totalRam = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024));
         TxtMemoryHint.Text = totalRam > 0
-            ? $"Всего в системе: {totalRam} МБ. Для ванильной игры обычно достаточно 2048–4096 МБ."
-            : "Для ванильной игры обычно достаточно 2048–4096 МБ.";
+            ? $"����� � �������: {totalRam} ��. ��� ��������� ���� ������ ���������� 2048�4096 ��."
+            : "��� ��������� ���� ������ ���������� 2048�4096 ��.";
     }
 
     private void PersistSettings()
@@ -423,7 +295,7 @@ public partial class MainWindow : Window
 
         SettingsService.Save(_settings);
 
-        // Список сборок сохраняем только когда он реально загружен
+        // ������ ������ ��������� ������ ����� �� ������� ��������
         if (!_initializing && InstanceService.Loaded) InstanceService.SaveAll(_instances);
     }
 
@@ -439,24 +311,24 @@ public partial class MainWindow : Window
             {
                 if (list.Count == 0)
                 {
-                    TxtBadgeJava.Text = "Java: не найдена";
-                    TxtJavaList.Text = "Java не обнаружена. Лаунчер скачает нужную версию автоматически.";
+                    TxtBadgeJava.Text = "Java: �� �������";
+                    TxtJavaList.Text = "Java �� ����������. ������� ������� ������ ������ �������������.";
                 }
                 else
                 {
                     TxtBadgeJava.Text = $"Java {list[0].MajorVersion}";
-                    TxtJavaList.Text = "Найдено:\n" + string.Join("\n", list.Select(j => "  • " + j));
+                    TxtJavaList.Text = "�������:\n" + string.Join("\n", list.Select(j => "  � " + j));
                 }
             });
         }
-        catch (Exception ex) { Log.Warn("Ошибка поиска Java: " + ex.Message); }
+        catch (Exception ex) { Log.Warn("������ ������ Java: " + ex.Message); }
     }
 
     // =====================================================================
-    //  ВНЕШНИЙ ВИД
+    //  ������� ���
     // =====================================================================
 
-    // ---------- Темы ----------
+    // ---------- ���� ----------
 
     private void BuildThemeCards()
     {
@@ -489,10 +361,10 @@ public partial class MainWindow : Window
         RefreshContent();
 
         SettingsService.Save(_settings);
-        AppendLog($"Тема изменена: {name}");
+        AppendLog($"���� ��������: {name}");
     }
 
-    // ---------- Фон окна ----------
+    // ---------- ��� ���� ----------
 
     private void ApplyWindowBackground()
     {
@@ -506,8 +378,8 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Выберите фото для фона лаунчера",
-            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.webp|Все файлы|*.*"
+            Title = "�������� ���� ��� ���� ��������",
+            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp;*.webp|��� �����|*.*"
         };
         if (dlg.ShowDialog(this) != true) return;
 
@@ -515,7 +387,7 @@ public partial class MainWindow : Window
         TxtWindowBg.Text = dlg.FileName;
         ApplyWindowBackground();
         SettingsService.Save(_settings);
-        AppendLog("Установлен фон лаунчера: " + Path.GetFileName(dlg.FileName));
+        AppendLog("���������� ��� ��������: " + Path.GetFileName(dlg.FileName));
     }
 
     private void BtnClearWindowBg_Click(object sender, RoutedEventArgs e)
@@ -535,7 +407,7 @@ public partial class MainWindow : Window
         ApplyWindowBackground();
     }
 
-    // ---------- Язык игры ----------
+    // ---------- ���� ���� ----------
 
     private void GameLang_Checked(object sender, RoutedEventArgs e)
     {
@@ -592,7 +464,7 @@ public partial class MainWindow : Window
             rb.Checked += (s, _) =>
             {
                 if (!IsLoaded) return;
-                _settings.BackgroundStyle = (s as FrameworkElement)?.Tag?.ToString() ?? "Изумруд";
+                _settings.BackgroundStyle = (s as FrameworkElement)?.Tag?.ToString() ?? "�������";
                 ApplyBanner();
                 SettingsService.Save(_settings);
             };
@@ -619,7 +491,7 @@ public partial class MainWindow : Window
                 ImgCustomBanner.Visibility = Visibility.Visible;
                 return;
             }
-            catch (Exception ex) { Log.Warn("Не удалось загрузить баннер: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("�� ������� ��������� ������: " + ex.Message); }
         }
 
         ImgCustomBanner.Source = null;
@@ -630,8 +502,8 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Картинка для баннера",
-            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp|Все файлы|*.*"
+            Title = "�������� ��� �������",
+            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp|��� �����|*.*"
         };
         if (dlg.ShowDialog(this) != true) return;
 
@@ -650,24 +522,24 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ВЕРСИИ И СБОРКИ
+    //  ������ � ������
     // =====================================================================
 
     private async Task LoadVersionsAsync()
     {
         try
         {
-            SetStage("Загружаю манифест версий Mojang...");
+            SetStage("�������� �������� ������ Mojang...");
             ShowProgress(indeterminate: true);
             _manifest = await _versions.GetManifestAsync();
 
             var supported = VersionService.FilterSupported(_manifest, _settings.ShowSnapshots);
-            AppendLog($"Манифест загружен: {_manifest.Versions.Count} версий, доступно {supported.Count} (≥1.16.5).");
+            AppendLog($"�������� ��������: {_manifest.Versions.Count} ������, �������� {supported.Count} (?1.16.5).");
         }
         catch (Exception ex)
         {
-            AppendLog("Ошибка загрузки версий: " + ex.Message);
-            TxtBannerInfo.Text = "Не удалось получить список версий. Проверьте интернет.";
+            AppendLog("������ �������� ������: " + ex.Message);
+            TxtBannerInfo.Text = "�� ������� �������� ������ ������. ��������� ��������.";
         }
         finally { HideProgress(); }
     }
@@ -678,26 +550,26 @@ public partial class MainWindow : Window
 
         if (!InstanceService.Loaded)
         {
-            AppendLog("ВНИМАНИЕ: список сборок не прочитан, изменения не сохраняются. " +
-                      "Перезапустите лаунчер.");
+            AppendLog("��������: ������ ������ �� ��������, ��������� �� �����������. " +
+                      "������������� �������.");
             MessageBox.Show(
-                "Не удалось прочитать список сборок.\n\n" +
-                "Чтобы не потерять данные, сохранение отключено до перезапуска.\n" +
-                "Файлы сборок на диске не тронуты.",
-                "Список сборок", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "�� ������� ��������� ������ ������.\n\n" +
+                "����� �� �������� ������, ���������� ��������� �� �����������.\n" +
+                "����� ������ �� ����� �� �������.",
+                "������ ������", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        // Папки на диске есть, а в списке их нет — восстанавливаем
+        // ����� �� ����� ����, � � ������ �� ��� � ���������������
         var orphans = InstanceService.ScanOrphans(_instances);
         if (orphans.Count > 0)
         {
             _instances.AddRange(orphans);
             InstanceService.SaveAll(_instances);
-            AppendLog($"Найдено сборок на диске: {orphans.Count}.");
+            AppendLog($"������� ������ �� �����: {orphans.Count}.");
         }
 
-        // Стартовую сборку создаём ТОЛЬКО если манифест реально загрузился.
-        // Иначе (нет сети) просто ждём — иначе затрём существующий список.
+        // ��������� ������ ������ ������ ���� �������� ������� ����������.
+        // ����� (��� ����) ������ ��� � ����� ����� ������������ ������.
         if (_instances.Count == 0 && _manifest is not null && InstanceService.Loaded)
         {
             var latest = VersionService.FilterSupported(_manifest, false).FirstOrDefault();
@@ -713,13 +585,13 @@ public partial class MainWindow : Window
                 InstanceService.EnsureFolders(inst);
                 _instances.Add(inst);
                 InstanceService.SaveAll(_instances);
-                AppendLog($"Создана стартовая сборка «{inst.Name}».");
+                AppendLog($"������� ��������� ������ �{inst.Name}�.");
             }
         }
         else if (_instances.Count == 0 && _manifest is null)
         {
-            AppendLog("Нет соединения с Mojang — список версий недоступен. " +
-                      "Сборки не создаются, существующие данные сохранены.");
+            AppendLog("��� ���������� � Mojang � ������ ������ ����������. " +
+                      "������ �� ���������, ������������ ������ ���������.");
         }
 
         RefreshInstanceLists();
@@ -727,8 +599,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Сверяет сборки с файлами на диске: если клиент пропал (чистка, антивирус),
-    /// помечаем сборку как требующую переустановки, а не молча теряем её.
+    /// ������� ������ � ������� �� �����: ���� ������ ������ (������, ���������),
+    /// �������� ������ ��� ��������� �������������, � �� ����� ������ �.
     /// </summary>
     private void VerifyInstalledVersions()
     {
@@ -746,8 +618,8 @@ public partial class MainWindow : Window
         }
 
         if (missing.Count > 0)
-            AppendLog($"Требуют загрузки клиента: {string.Join(", ", missing)}. " +
-                      "Файлы скачаются при нажатии «ИГРАТЬ».");
+            AppendLog($"������� �������� �������: {string.Join(", ", missing)}. " +
+                      "����� ��������� ��� ������� ������ܻ.");
     }
 
     private void RefreshInstanceLists()
@@ -771,8 +643,8 @@ public partial class MainWindow : Window
         else
         {
             _selectedInstance = null;
-            TxtBannerVersion.Text = "Нет сборок";
-            TxtBannerInfo.Text = "Создайте сборку на вкладке «Версии».";
+            TxtBannerVersion.Text = "��� ������";
+            TxtBannerInfo.Text = "�������� ������ �� ������� �������.";
         }
     }
 
@@ -790,7 +662,7 @@ public partial class MainWindow : Window
         if (!ReferenceEquals(CbInstances.SelectedItem, inst)) CbInstances.SelectedItem = inst;
     }
 
-    /// <summary>ПКМ по сборке — сначала выделяем её, потом показываем меню.</summary>
+    /// <summary>��� �� ������ � ������� �������� �, ����� ���������� ����.</summary>
     private void LstInstances_RightClick(object sender, MouseButtonEventArgs e)
     {
         var item = ItemsControl.ContainerFromElement(LstInstances, e.OriginalSource as DependencyObject)
@@ -820,8 +692,8 @@ public partial class MainWindow : Window
     {
         if (_selectedInstance is null) return;
 
-        var dlg = new TextInputDialog("Переименовать сборку",
-            $"Новое название для «{_selectedInstance.Name}»:", _selectedInstance.Name) { Owner = this };
+        var dlg = new TextInputDialog("������������� ������",
+            $"����� �������� ��� �{_selectedInstance.Name}�:", _selectedInstance.Name) { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
@@ -836,7 +708,7 @@ public partial class MainWindow : Window
         var restored = _instances.FirstOrDefault(i => i.Id == id);
         if (restored is not null) { CbInstances.SelectedItem = restored; SelectInstance(restored); }
 
-        AppendLog($"Сборка переименована: «{name}»");
+        AppendLog($"������ �������������: �{name}�");
     }
 
     private void CtxMemory_Click(object sender, RoutedEventArgs e)
@@ -847,14 +719,14 @@ public partial class MainWindow : Window
             ? _selectedInstance.MaxMemoryMb.ToString()
             : _settings.MaxMemoryMb.ToString();
 
-        var dlg = new TextInputDialog("Память сборки",
-            "Сколько МБ выделить этой сборке? (0 — как в общих настройках)", current) { Owner = this };
+        var dlg = new TextInputDialog("������ ������",
+            "������� �� �������� ���� ������? (0 � ��� � ����� ����������)", current) { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
         if (!int.TryParse(dlg.Value.Trim(), out var mb) || mb < 0)
         {
-            MessageBox.Show("Введите число, например 4096.", "Некорректное значение",
+            MessageBox.Show("������� �����, �������� 4096.", "������������ ��������",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -864,8 +736,8 @@ public partial class MainWindow : Window
         FillInstanceSettings(_selectedInstance);
 
         AppendLog(mb > 0
-            ? $"Для «{_selectedInstance.Name}» задано {mb} МБ."
-            : $"Для «{_selectedInstance.Name}» память как в общих настройках.");
+            ? $"��� �{_selectedInstance.Name}� ������ {mb} ��."
+            : $"��� �{_selectedInstance.Name}� ������ ��� � ����� ����������.");
     }
     private void SelectInstance(GameInstance inst)
     {
@@ -875,16 +747,16 @@ public partial class MainWindow : Window
         TxtBannerVersion.Text = inst.Name;
         var installed = File.Exists(GamePaths.ForInstance(inst).VersionJar(inst.McVersion));
         TxtBannerInfo.Text = installed
-            ? $"Minecraft {inst.McVersion} · готова к запуску"
-            : $"Minecraft {inst.McVersion} · будет загружена с серверов Mojang";
+            ? $"Minecraft {inst.McVersion} � ������ � �������"
+            : $"Minecraft {inst.McVersion} � ����� ��������� � �������� Mojang";
 
         TxtBadgeLoader.Text = inst.LoaderDisplay;
 
-        // Детали
+        // ������
         TxtInstName.Text = inst.Name;
         TxtInstVersion.Text = "Minecraft " + inst.McVersion;
         TxtInstLoader.Text = inst.LoaderDisplay;
-        TxtInstPlaytime.Text = inst.TotalPlaySeconds > 0 ? "В игре: " + inst.PlayTimeDisplay : "Ещё не запускалась";
+        TxtInstPlaytime.Text = inst.TotalPlaySeconds > 0 ? "� ����: " + inst.PlayTimeDisplay : "��� �� �����������";
 
         RefreshInstanceStats();
         LoadScreenshots();
@@ -897,7 +769,7 @@ public partial class MainWindow : Window
         UpdateRunStateUi();
     }
 
-    // ---------- Индивидуальные настройки сборки ----------
+    // ---------- �������������� ��������� ������ ----------
 
     private bool _loadingInstSettings;
 
@@ -917,7 +789,7 @@ public partial class MainWindow : Window
         finally { _loadingInstSettings = false; }
     }
 
-    // ---------- Профили модов ----------
+    // ---------- ������� ����� ----------
 
     private void RefreshModProfiles()
     {
@@ -933,8 +805,8 @@ public partial class MainWindow : Window
                 : profiles[0];
 
             var counts = profiles.Select(p =>
-                $"{p} — {ModProfileService.CountMods(_selectedInstance, p)}");
-            TxtProfileInfo.Text = "Модов: " + string.Join("  ·  ", counts);
+                $"{p} � {ModProfileService.CountMods(_selectedInstance, p)}");
+            TxtProfileInfo.Text = "�����: " + string.Join("  �  ", counts);
         }
         finally { _loadingInstSettings = false; }
     }
@@ -948,8 +820,8 @@ public partial class MainWindow : Window
 
         if (_sessions.IsInstanceRunning(_selectedInstance.Id))
         {
-            MessageBox.Show("Нельзя менять профиль, пока сборка запущена.",
-                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("������ ������ �������, ���� ������ ��������.",
+                "���� ��������", MessageBoxButton.OK, MessageBoxImage.Warning);
             RefreshModProfiles();
             return;
         }
@@ -963,11 +835,11 @@ public partial class MainWindow : Window
             RefreshInstanceStats();
             RefreshContent();
 
-            AppendLog($"Профиль модов: «{target}»");
+            AppendLog($"������� �����: �{target}�");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Не удалось переключить профиль",
+            MessageBox.Show(ex.Message, "�� ������� ����������� �������",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             RefreshModProfiles();
         }
@@ -977,8 +849,8 @@ public partial class MainWindow : Window
     {
         if (_selectedInstance is null) return;
 
-        var dlg = new TextInputDialog("Новый профиль модов",
-            "Название профиля:", "Например: Для съёмок") { Owner = this };
+        var dlg = new TextInputDialog("����� ������� �����",
+            "�������� �������:", "��������: ��� ������") { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
@@ -986,18 +858,18 @@ public partial class MainWindow : Window
         if (name.Length == 0) return;
 
         var copy = MessageBox.Show(
-            "Скопировать текущие моды в новый профиль?\n\n«Нет» — создать пустой.",
-            "Новый профиль", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            "����������� ������� ���� � ����� �������?\n\n���� � ������� ������.",
+            "����� �������", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
         try
         {
             ModProfileService.Create(_selectedInstance, name, copy);
             RefreshModProfiles();
-            AppendLog($"Создан профиль модов «{name}».");
+            AppendLog($"������ ������� ����� �{name}�.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1005,29 +877,29 @@ public partial class MainWindow : Window
     {
         if (_selectedInstance is null || CbModProfile.SelectedItem is not string name) return;
 
-        if (MessageBox.Show($"Удалить профиль «{name}» со всеми его модами?",
-                "Удаление профиля", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+        if (MessageBox.Show($"������� ������� �{name}� �� ����� ��� ������?",
+                "�������� �������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         try
         {
             ModProfileService.Delete(_selectedInstance, name);
             RefreshModProfiles();
-            AppendLog($"Профиль «{name}» удалён.");
+            AppendLog($"������� �{name}� �����.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- Проверка целостности ----------
+    // ---------- �������� ����������� ----------
 
     private async void BtnCheckIntegrity_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null) return;
 
-        TxtInstHealth.Text = "Проверяю…";
+        TxtInstHealth.Text = "���������";
         TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
 
         try
@@ -1040,10 +912,10 @@ public partial class MainWindow : Window
             var sb = new StringBuilder();
             sb.AppendLine(report.Summary);
 
-            foreach (var p in report.Problems) sb.AppendLine("  ✕  " + p);
+            foreach (var p in report.Problems) sb.AppendLine("  ?  " + p);
             foreach (var w in report.Warnings) sb.AppendLine("  !  " + w);
             if (report.Problems.Count == 0)
-                foreach (var o in report.Ok.Take(4)) sb.AppendLine("  ✓  " + o);
+                foreach (var o in report.Ok.Take(4)) sb.AppendLine("  ?  " + o);
 
             TxtInstHealth.Text = sb.ToString().TrimEnd();
             TxtInstHealth.Foreground = (Brush)FindResource(
@@ -1052,27 +924,27 @@ public partial class MainWindow : Window
             if (report.Fixable.Count > 0)
             {
                 var r = MessageBox.Show(
-                    $"Найдено проблем: {report.Problems.Count}.\n\n" +
-                    "Удалить повреждённые файлы, чтобы лаунчер скачал их заново?",
-                    "Восстановление", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    $"������� �������: {report.Problems.Count}.\n\n" +
+                    "������� ����������� �����, ����� ������� ������ �� ������?",
+                    "��������������", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
                 if (r == MessageBoxResult.Yes)
                 {
                     var removed = IntegrityService.Repair(_selectedInstance, report);
-                    TxtInstHealth.Text = $"Удалено повреждённых элементов: {removed}. " +
-                                         "Нажмите «ИГРАТЬ» — файлы загрузятся заново.";
-                    AppendLog($"Восстановление сборки: удалено {removed} элементов.");
+                    TxtInstHealth.Text = $"������� ����������� ���������: {removed}. " +
+                                         "������� ������ܻ � ����� ���������� ������.";
+                    AppendLog($"�������������� ������: ������� {removed} ���������.");
                 }
             }
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "Ошибка проверки: " + ex.Message;
+            TxtInstHealth.Text = "������ ��������: " + ex.Message;
             TxtInstHealth.Foreground = (Brush)FindResource("Danger");
         }
     }
 
-    // ---------- Обновления модов ----------
+    // ---------- ���������� ����� ----------
 
     private async void BtnCheckModUpdates_Click(object sender, RoutedEventArgs e)
     {
@@ -1081,7 +953,7 @@ public partial class MainWindow : Window
         var inst = _selectedInstance;
         var modsDir = InstanceService.ModsDir(inst);
 
-        TxtInstHealth.Text = "Проверяю обновления модов…";
+        TxtInstHealth.Text = "�������� ���������� �����";
         TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
 
         try
@@ -1094,54 +966,54 @@ public partial class MainWindow : Window
 
             if (updates.Count == 0)
             {
-                TxtInstHealth.Text = "Все моды актуальны.";
+                TxtInstHealth.Text = "��� ���� ���������.";
                 TxtInstHealth.Foreground = (Brush)FindResource("Accent");
                 return;
             }
 
             var list = string.Join("\n", updates.Take(12).Select(u =>
-                $"  • {u.Project.Title}: {u.CurrentVersion} → {u.NewVersion}"));
+                $"  � {u.Project.Title}: {u.CurrentVersion} > {u.NewVersion}"));
 
-            if (updates.Count > 12) list += $"\n  … и ещё {updates.Count - 12}";
+            if (updates.Count > 12) list += $"\n  � � ��� {updates.Count - 12}";
 
             var r = MessageBox.Show(
-                $"Доступно обновлений: {updates.Count}\n\n{list}\n\nОбновить все?",
-                "Обновления модов", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                $"�������� ����������: {updates.Count}\n\n{list}\n\n�������� ���?",
+                "���������� �����", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
             if (r != MessageBoxResult.Yes)
             {
-                TxtInstHealth.Text = $"Доступно обновлений: {updates.Count}";
+                TxtInstHealth.Text = $"�������� ����������: {updates.Count}";
                 return;
             }
 
             var done = 0;
             foreach (var u in updates)
             {
-                TxtInstHealth.Text = $"Обновляю {u.Project.Title}… ({done + 1} из {updates.Count})";
+                TxtInstHealth.Text = $"�������� {u.Project.Title}� ({done + 1} �� {updates.Count})";
                 if (await _mods.ApplyUpdateAsync(u, modsDir, inst.McVersion, inst.Loader)) done++;
             }
 
-            TxtInstHealth.Text = $"Обновлено модов: {done} из {updates.Count}.";
+            TxtInstHealth.Text = $"��������� �����: {done} �� {updates.Count}.";
             TxtInstHealth.Foreground = (Brush)FindResource("Accent");
 
-            NotifyFinished("Моды обновлены", $"Обновлено {done} модов");
+            NotifyFinished("���� ���������", $"��������� {done} �����");
             RefreshInstanceStats();
             RefreshContent();
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "Ошибка: " + ex.Message;
+            TxtInstHealth.Text = "������: " + ex.Message;
             TxtInstHealth.Foreground = (Brush)FindResource("Danger");
         }
     }
 
-    // ---------- Конфликты ----------
+    // ---------- ��������� ----------
 
     private void BtnFindConflicts_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null) return;
 
-        TxtInstHealth.Text = "Читаю моды…";
+        TxtInstHealth.Text = "����� �����";
 
         try
         {
@@ -1149,7 +1021,7 @@ public partial class MainWindow : Window
 
             if (mods.Count == 0)
             {
-                TxtInstHealth.Text = "Модов в сборке нет.";
+                TxtInstHealth.Text = "����� � ������ ���.";
                 TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
                 return;
             }
@@ -1158,19 +1030,19 @@ public partial class MainWindow : Window
 
             if (conflicts.Count == 0)
             {
-                TxtInstHealth.Text = $"Проверено модов: {mods.Count}. Конфликтов не найдено.";
+                TxtInstHealth.Text = $"��������� �����: {mods.Count}. ���������� �� �������.";
                 TxtInstHealth.Foreground = (Brush)FindResource("Accent");
                 return;
             }
 
-            var sb = new StringBuilder($"Проверено модов: {mods.Count}\n");
+            var sb = new StringBuilder($"��������� �����: {mods.Count}\n");
 
             foreach (var c in conflicts)
             {
-                sb.AppendLine($"  {(c.IsError ? "✕" : "!")}  {c.Title}");
+                sb.AppendLine($"  {(c.IsError ? "?" : "!")}  {c.Title}");
                 sb.AppendLine($"      {c.Details}");
                 if (c.Files.Count > 0)
-                    sb.AppendLine($"      файлы: {string.Join(", ", c.Files.Take(4))}");
+                    sb.AppendLine($"      �����: {string.Join(", ", c.Files.Take(4))}");
             }
 
             TxtInstHealth.Text = sb.ToString().TrimEnd();
@@ -1179,11 +1051,11 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "Ошибка: " + ex.Message;
+            TxtInstHealth.Text = "������: " + ex.Message;
         }
     }
 
-    // ---------- Статистика ----------
+    // ---------- ���������� ----------
 
     private void RefreshStatistics()
     {
@@ -1191,14 +1063,14 @@ public partial class MainWindow : Window
 
         var inst = _selectedInstance;
 
-        TxtStatTotal.Text = inst.TotalPlaySeconds > 0 ? inst.PlayTimeDisplay : "—";
+        TxtStatTotal.Text = inst.TotalPlaySeconds > 0 ? inst.PlayTimeDisplay : "�";
         TxtStatSessions.Text = inst.Sessions.Count.ToString();
 
         TxtStatAvg.Text = inst.Sessions.Count > 0
             ? FormatMinutes((long)inst.Sessions.Average(s => s.Seconds))
-            : "—";
+            : "�";
 
-        // График за 14 дней
+        // ������ �� 14 ����
         var today = DateTime.Today;
         var days = Enumerable.Range(0, 14).Select(i => today.AddDays(-13 + i)).ToList();
 
@@ -1223,19 +1095,19 @@ public partial class MainWindow : Window
                     : (Color)ColorConverter.ConvertFromString("#2A2F3A")),
                 Tip = x.Seconds > 0
                     ? $"{x.Day:dd.MM}: {FormatMinutes(x.Seconds)}"
-                    : $"{x.Day:dd.MM}: не играли"
+                    : $"{x.Day:dd.MM}: �� ������"
             };
         }).ToList();
     }
 
     private static string FormatMinutes(long seconds)
     {
-        if (seconds < 60) return $"{seconds} с";
+        if (seconds < 60) return $"{seconds} �";
         var ts = TimeSpan.FromSeconds(seconds);
-        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours} ч {ts.Minutes} мин" : $"{ts.Minutes} мин";
+        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours} � {ts.Minutes} ���" : $"{ts.Minutes} ���";
     }
 
-    // ---------- JVM-пресеты ----------
+    // ---------- JVM-������� ----------
 
     private void RefreshJvmPresets()
     {
@@ -1287,10 +1159,10 @@ public partial class MainWindow : Window
         InstanceService.SaveAll(_instances);
         UpdateJvmPresetInfo();
 
-        AppendLog($"Сборка «{_selectedInstance.Name}»: пресет JVM «{name}».");
+        AppendLog($"������ �{_selectedInstance.Name}�: ������ JVM �{name}�.");
     }
 
-    // ---------- Иконка сборки ----------
+    // ---------- ������ ������ ----------
 
     private void RefreshInstanceIcon()
     {
@@ -1316,7 +1188,7 @@ public partial class MainWindow : Window
                 InstIconDot.Visibility = Visibility.Collapsed;
                 return;
             }
-            catch (Exception ex) { Log.Warn("Иконка сборки: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("������ ������: " + ex.Message); }
         }
 
         ImgInstIcon.Source = null;
@@ -1329,15 +1201,15 @@ public partial class MainWindow : Window
 
         var dlg = new OpenFileDialog
         {
-            Title = "Иконка сборки",
-            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.ico|Все файлы|*.*"
+            Title = "������ ������",
+            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp;*.ico|��� �����|*.*"
         };
 
         if (dlg.ShowDialog(this) != true) return;
 
         try
         {
-            // Копируем в папку сборки, чтобы иконка не потерялась при переносе
+            // �������� � ����� ������, ����� ������ �� ���������� ��� ��������
             var dst = Path.Combine(InstanceService.InstanceDir(_selectedInstance),
                 "icon" + Path.GetExtension(dlg.FileName));
 
@@ -1348,12 +1220,12 @@ public partial class MainWindow : Window
 
             RefreshInstanceIcon();
             RefreshInstanceLists();
-            AppendLog($"Иконка сборки «{_selectedInstance.Name}» обновлена.");
+            AppendLog($"������ ������ �{_selectedInstance.Name}� ���������.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось установить иконку: " + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� ���������� ������: " + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1397,15 +1269,15 @@ public partial class MainWindow : Window
 
         var dlg = new OpenFileDialog
         {
-            Title = "java.exe для этой сборки",
-            Filter = "java.exe|java.exe;javaw.exe|Исполняемые файлы (*.exe)|*.exe"
+            Title = "java.exe ��� ���� ������",
+            Filter = "java.exe|java.exe;javaw.exe|����������� ����� (*.exe)|*.exe"
         };
         if (dlg.ShowDialog(this) != true) return;
 
         var probe = JavaService.Probe(dlg.FileName, "instance");
         if (probe is null)
         {
-            MessageBox.Show("Не удалось определить версию Java по этому пути.",
+            MessageBox.Show("�� ������� ���������� ������ Java �� ����� ����.",
                 "Java", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -1413,7 +1285,7 @@ public partial class MainWindow : Window
         _selectedInstance.JavaPath = dlg.FileName;
         TxtInstJava.Text = dlg.FileName;
         InstanceService.SaveAll(_instances);
-        AppendLog($"Для «{_selectedInstance.Name}» выбрана {probe}");
+        AppendLog($"��� �{_selectedInstance.Name}� ������� {probe}");
     }
 
     private void BtnInstSetRu_Click(object sender, RoutedEventArgs e)
@@ -1424,9 +1296,9 @@ public partial class MainWindow : Window
             InstanceService.InstanceDir(_selectedInstance), _selectedInstance.McVersion, "ru");
 
         MessageBox.Show(ok
-                ? "Русский язык записан в options.txt этой сборки."
-                : "Не удалось изменить язык — подробности в консоли.",
-            "Язык игры", MessageBoxButton.OK,
+                ? "������� ���� ������� � options.txt ���� ������."
+                : "�� ������� �������� ���� � ����������� � �������.",
+            "���� ����", MessageBoxButton.OK,
             ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
@@ -1438,7 +1310,7 @@ public partial class MainWindow : Window
 
         var copy = new GameInstance
         {
-            Name = src.Name + " (копия)",
+            Name = src.Name + " (�����)",
             McVersion = src.McVersion,
             Loader = src.Loader,
             LoaderVersion = src.LoaderVersion,
@@ -1456,9 +1328,9 @@ public partial class MainWindow : Window
         InstanceService.EnsureFolders(copy);
 
         var r = MessageBox.Show(
-            "Скопировать моды, ресурспаки и шейдеры в новую сборку?\n\n" +
-            "«Нет» — создать пустую сборку с теми же настройками.",
-            "Дублирование", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            "����������� ����, ���������� � ������� � ����� ������?\n\n" +
+            "���� � ������� ������ ������ � ���� �� �����������.",
+            "������������", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -1475,7 +1347,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                AppendLog("Ошибка копирования содержимого: " + ex.Message);
+                AppendLog("������ ����������� �����������: " + ex.Message);
             }
         }
 
@@ -1484,7 +1356,7 @@ public partial class MainWindow : Window
         RefreshInstanceLists();
         CbInstances.SelectedItem = _instances.FirstOrDefault(i => i.Id == copy.Id);
 
-        AppendLog($"Создана копия сборки: «{copy.Name}»");
+        AppendLog($"������� ����� ������: �{copy.Name}�");
     }
 
     private void BtnResetInstance_Click(object sender, RoutedEventArgs e)
@@ -1492,10 +1364,10 @@ public partial class MainWindow : Window
         if (_selectedInstance is null) return;
 
         if (MessageBox.Show(
-                "Сбросить индивидуальные настройки этой сборки?\n\n" +
-                "Память, размер окна, Java и аргументы вернутся к общим значениям.\n" +
-                "Моды и миры не пострадают.",
-                "Сброс настроек сборки", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                "�������� �������������� ��������� ���� ������?\n\n" +
+                "������, ������ ����, Java � ��������� �������� � ����� ���������.\n" +
+                "���� � ���� �� ����������.",
+                "����� �������� ������", MessageBoxButton.YesNo, MessageBoxImage.Question)
             != MessageBoxResult.Yes) return;
 
         var inst = _selectedInstance;
@@ -1508,7 +1380,7 @@ public partial class MainWindow : Window
 
         InstanceService.SaveAll(_instances);
         FillInstanceSettings(inst);
-        AppendLog($"Настройки сборки «{inst.Name}» сброшены.");
+        AppendLog($"��������� ������ �{inst.Name}� ��������.");
     }
     private void RefreshInstanceStats()
     {
@@ -1516,16 +1388,16 @@ public partial class MainWindow : Window
 
         var st = InstanceService.GetStats(_selectedInstance);
 
-        TxtCountMods.Text = Plural(st.Mods, "файл", "файла", "файлов");
-        TxtCountRp.Text = Plural(st.ResourcePacks, "пак", "пака", "паков");
-        TxtCountShaders.Text = Plural(st.ShaderPacks, "пак", "пака", "паков");
-        TxtCountWorlds.Text = Plural(st.Worlds, "мир", "мира", "миров");
+        TxtCountMods.Text = Plural(st.Mods, "����", "�����", "������");
+        TxtCountRp.Text = Plural(st.ResourcePacks, "���", "����", "�����");
+        TxtCountShaders.Text = Plural(st.ShaderPacks, "���", "����", "�����");
+        TxtCountWorlds.Text = Plural(st.Worlds, "���", "����", "�����");
         TxtInstSize.Text = st.SizeDisplay;
 
-        TxtQuickMods.Text = st.Mods > 0 ? $"Моды ({st.Mods})" : "Моды";
-        TxtQuickRp.Text = st.ResourcePacks > 0 ? $"Ресурспаки ({st.ResourcePacks})" : "Ресурспаки";
-        TxtQuickShaders.Text = st.ShaderPacks > 0 ? $"Шейдеры ({st.ShaderPacks})" : "Шейдеры";
-        TxtQuickShots.Text = st.Screenshots > 0 ? $"Скриншоты ({st.Screenshots})" : "Скриншоты";
+        TxtQuickMods.Text = st.Mods > 0 ? $"���� ({st.Mods})" : "����";
+        TxtQuickRp.Text = st.ResourcePacks > 0 ? $"���������� ({st.ResourcePacks})" : "����������";
+        TxtQuickShaders.Text = st.ShaderPacks > 0 ? $"������� ({st.ShaderPacks})" : "�������";
+        TxtQuickShots.Text = st.Screenshots > 0 ? $"��������� ({st.Screenshots})" : "���������";
     }
 
     private static string Plural(int n, string one, string few, string many)
@@ -1561,14 +1433,14 @@ public partial class MainWindow : Window
                 var bmp = new BitmapImage();
                 bmp.BeginInit();
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.DecodePixelWidth = 264;      // экономим память на превью
+                bmp.DecodePixelWidth = 264;      // �������� ������ �� ������
                 bmp.UriSource = new Uri(f.FullName);
                 bmp.EndInit();
                 bmp.Freeze();
 
                 items.Add(new { Thumb = bmp, Path = f.FullName, Name = f.Name });
             }
-            catch { /* битый файл пропускаем */ }
+            catch { /* ����� ���� ���������� */ }
         }
 
         ItemsScreenshots.ItemsSource = items;
@@ -1579,7 +1451,7 @@ public partial class MainWindow : Window
         if (sender is not FrameworkElement fe || fe.Tag is not string path) return;
 
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-        catch (Exception ex) { AppendLog("Не удалось открыть скриншот: " + ex.Message); }
+        catch (Exception ex) { AppendLog("�� ������� ������� ��������: " + ex.Message); }
     }
 
     private void ChkSnapshots_Changed(object sender, RoutedEventArgs e)
@@ -1597,7 +1469,7 @@ public partial class MainWindow : Window
         else _twitchStream.StartMonitoring(_twitchAccount);
     }
 
-    // ---------- Создание / удаление ----------
+    // ---------- �������� / �������� ----------
 
     private void BtnNewInstance_Click(object sender, RoutedEventArgs e)
     {
@@ -1611,40 +1483,40 @@ public partial class MainWindow : Window
 
         _settings.LastInstanceId = inst.Id;
         RefreshInstanceLists();
-        AppendLog($"Создана сборка «{inst.Name}» ({inst.McVersion}, {inst.LoaderDisplay}).");
+        AppendLog($"������� ������ �{inst.Name}� ({inst.McVersion}, {inst.LoaderDisplay}).");
 
         NavInstances.IsChecked = true;
 
-        // Если создавали из модпака — распаковываем его содержимое
+        // ���� ��������� �� ������� � ������������� ��� ����������
         if (!string.IsNullOrEmpty(dlg.ModpackPath))
             _ = InstallModpackAsync(inst, dlg.ModpackPath!);
     }
 
-    /// <summary>Распаковывает модпак в только что созданную сборку.</summary>
+    /// <summary>������������� ������ � ������ ��� ��������� ������.</summary>
     private async Task InstallModpackAsync(GameInstance inst, string packPath)
     {
         SetBusy(true);
 
         try
         {
-            SetStage("Устанавливаю модпак...");
+            SetStage("������������ ������...");
             var info = await _modpacks.InstallAsync(packPath, inst);
 
             RefreshInstanceStats();
             RefreshContent();
 
             MessageBox.Show(
-                $"Модпак «{info.Name}» установлен в сборку «{inst.Name}».\n\n" +
-                $"Версия: {info.McVersion} {info.Loader.Display()}\n" +
-                $"Файлов: {info.FileCount}\n\n" +
-                "Загрузчик установится при первом запуске.",
-                "Модпак готов", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"������ �{info.Name}� ���������� � ������ �{inst.Name}�.\n\n" +
+                $"������: {info.McVersion} {info.Loader.Display()}\n" +
+                $"������: {info.FileCount}\n\n" +
+                "��������� ����������� ��� ������ �������.",
+                "������ �����", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            Log.Error("Установка модпака", ex);
-            MessageBox.Show("Не удалось установить модпак:\n\n" + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.Error("��������� �������", ex);
+            MessageBox.Show("�� ������� ���������� ������:\n\n" + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
@@ -1658,17 +1530,17 @@ public partial class MainWindow : Window
 
         if (_sessions.IsInstanceRunning(_selectedInstance.Id))
         {
-            MessageBox.Show("Нельзя удалить сборку, пока она запущена. Сначала остановите игру.",
-                "Сборка занята", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("������ ������� ������, ���� ��� ��������. ������� ���������� ����.",
+                "������ ������", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var inst = _selectedInstance;
         var r = MessageBox.Show(
-            $"Удалить сборку «{inst.Name}»?\n\n" +
-            "«Да» — удалить вместе с модами, мирами и скриншотами.\n" +
-            "«Нет» — убрать из списка, файлы оставить.",
-            "Удаление сборки", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+            $"������� ������ �{inst.Name}�?\n\n" +
+            "��� � ������� ������ � ������, ������ � �����������.\n" +
+            "���� � ������ �� ������, ����� ��������.",
+            "�������� ������", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -1680,21 +1552,21 @@ public partial class MainWindow : Window
             InstanceService.SaveAll(_instances);
             _selectedInstance = null;
             RefreshInstanceLists();
-            AppendLog($"Сборка «{inst.Name}» удалена.");
+            AppendLog($"������ �{inst.Name}� �������.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка удаления", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "������ ��������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- Папки ----------
+    // ---------- ����� ----------
 
     private void OpenInstanceFolder(Func<GameInstance, string> selector)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1706,7 +1578,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1724,7 +1596,7 @@ public partial class MainWindow : Window
     private void QuickScreenshots_Click(object s, RoutedEventArgs e) => OpenInstanceFolder(InstanceService.ScreenshotsDir);
 
     // =====================================================================
-    //  СЕРВЕРЫ
+    //  �������
     // =====================================================================
 
     private async Task RefreshServersAsync()
@@ -1742,7 +1614,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Log.Warn("Не удалось загрузить спонсорские серверы: " + ex.Message);
+            Log.Warn("�� ������� ��������� ����������� �������: " + ex.Message);
         }
 
         var views = servers.Select(s => CreateServerView(s, null)).ToList();
@@ -1793,22 +1665,22 @@ public partial class MainWindow : Window
             PlaceholderVisibility = favicon is null ? Visibility.Visible : Visibility.Collapsed,
             FeaturedVisibility = srv.Featured ? Visibility.Visible : Visibility.Collapsed,
 
-            StatusText = checking ? "проверка…" : online ? "онлайн" : "офлайн",
+            StatusText = checking ? "���������" : online ? "������" : "������",
             StatusColor = new SolidColorBrush(checking
                 ? (Color)ColorConverter.ConvertFromString("#8B93A3")
                 : online ? ThemeService.CurrentAccent : (Color)ColorConverter.ConvertFromString("#F87171")),
             StatusBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
                 checking ? "#22262E" : online ? "#14301F" : "#2A1A1D")),
 
-            Players = online ? status!.OnlinePlayers.ToString() : "—",
-            Motd = checking ? "Получаю данные сервера..."
+            Players = online ? status!.OnlinePlayers.ToString() : "�",
+            Motd = checking ? "������� ������ �������..."
                 : online ? (string.IsNullOrWhiteSpace(status!.Motd) ? srv.Description : status.Motd)
-                : (status?.Error ?? "Сервер недоступен"),
+                : (status?.Error ?? "������ ����������"),
 
             VersionInfo = online && !string.IsNullOrEmpty(status!.VersionName)
                 ? status.VersionName
-                : "версия " + srv.RequiredVersion,
-            PingInfo = online ? $"{status!.PingMs} мс" : "",
+                : "������ " + srv.RequiredVersion,
+            PingInfo = online ? $"{status!.PingMs} ��" : "",
 
             RequiredVersion = srv.RequiredVersion,
             Loader = srv.Loader
@@ -1829,12 +1701,12 @@ public partial class MainWindow : Window
         try
         {
             Clipboard.SetText(addr);
-            AppendLog($"Адрес {addr} скопирован в буфер обмена.");
+            AppendLog($"����� {addr} ���������� � ����� ������.");
         }
-        catch (Exception ex) { AppendLog("Не удалось скопировать: " + ex.Message); }
+        catch (Exception ex) { AppendLog("�� ������� �����������: " + ex.Message); }
     }
 
-    /// <summary>«Играть» на карточке сервера: подбирает сборку нужной версии и запускает с подключением.</summary>
+    /// <summary>�������� �� �������� �������: ��������� ������ ������ ������ � ��������� � ������������.</summary>
     private async void ServerPlay_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not string address) return;
@@ -1850,9 +1722,9 @@ public partial class MainWindow : Window
         if (inst is null)
         {
             var r = MessageBox.Show(
-                $"Для сервера {srv.Name} нужна версия {srv.RequiredVersion}, " +
-                "но подходящей сборки нет.\n\nСоздать её сейчас?",
-                "Нужна сборка", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                $"��� ������� {srv.Name} ����� ������ {srv.RequiredVersion}, " +
+                "�� ���������� ������ ���.\n\n������� � ������?",
+                "����� ������", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (r != MessageBoxResult.Yes) return;
 
@@ -1885,19 +1757,19 @@ public partial class MainWindow : Window
         list.Add(dlg.Result);
         ServerCatalog.SaveUserServers(list);
 
-        AppendLog($"Добавлен сервер {dlg.Result.Name} ({dlg.Result.Address}).");
+        AppendLog($"�������� ������ {dlg.Result.Name} ({dlg.Result.Address}).");
         _ = RefreshServersAsync();
     }
 
     // =====================================================================
-    //  ЗАПУСК ИГРЫ
+    //  ������ ����
     // =====================================================================
 
     private async void BtnPlay_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите или создайте сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ��� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             NavInstances.IsChecked = true;
             return;
@@ -1913,28 +1785,28 @@ public partial class MainWindow : Window
         if (_account is null)
         {
             MessageBox.Show(
-                "Сначала войдите в аккаунт на вкладке «Аккаунт».\n\n" +
-                "Доступны вход через Microsoft и оффлайн-профиль.",
-                "Требуется вход", MessageBoxButton.OK, MessageBoxImage.Information);
+                "������� ������� � ������� �� ������� ��������.\n\n" +
+                "�������� ���� ����� Microsoft � �������-�������.",
+                "��������� ����", MessageBoxButton.OK, MessageBoxImage.Information);
             NavAccount.IsChecked = true;
             return;
         }
 
-        // Защита от повторного запуска
+        // ������ �� ���������� �������
         if (!_settings.AllowMultipleInstances && _sessions.AnyRunning)
         {
             var running = _sessions.Sessions.First(s => s.IsRunning);
             MessageBox.Show(
-                $"Игра уже запущена: «{running.InstanceName}».\n\n" +
-                "Остановите её кнопкой «ОСТАНОВИТЬ» либо разрешите\n" +
-                "несколько копий в настройках.",
-                "Игра уже запущена", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"���� ��� ��������: �{running.InstanceName}�.\n\n" +
+                "���������� � ������� ����������ܻ ���� ���������\n" +
+                "��������� ����� � ����������.",
+                "���� ��� ��������", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_sessions.IsInstanceRunning(inst.Id))
         {
-            MessageBox.Show($"Сборка «{inst.Name}» уже запущена.", "Уже запущена",
+            MessageBox.Show($"������ �{inst.Name}� ��� ��������.", "��� ��������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1947,17 +1819,17 @@ public partial class MainWindow : Window
 
         try
         {
-            // 1. Токен
+            // 1. �����
             if (!_account.IsOffline && _account.IsExpired &&
                 !string.IsNullOrEmpty(_account.MicrosoftRefreshToken))
             {
-                SetStage("Обновляю сессию Microsoft...");
+                SetStage("�������� ������ Microsoft...");
                 _account = await _auth.RefreshAsync(_account.MicrosoftRefreshToken!, ct);
                 AccountStorage.Save(_account);
                 SetAccount(_account, refreshSkin: false);
             }
 
-            // 2. Хранилище: общее либо изолированное для этой сборки
+            // 2. ���������: ����� ���� ������������� ��� ���� ������
             var paths = GamePaths.ForInstance(inst);
             paths.EnsureAll();
 
@@ -1968,18 +1840,18 @@ public partial class MainWindow : Window
                 ? Path.Combine(InstanceService.InstanceDir(inst), ".minecraft")
                 : LauncherPaths.Root;
 
-            if (paths.IsIsolated) AppendLog($"Сборка «{inst.Name}» изолирована: файлы в её папке.");
+            if (paths.IsIsolated) AppendLog($"������ �{inst.Name}� �����������: ����� � � �����.");
 
-            // 3. Базовая версия
-            SetStage($"Читаю описание версии {inst.McVersion}...");
+            // 3. ������� ������
+            SetStage($"����� �������� ������ {inst.McVersion}...");
             var manifest = _manifest ?? await _versions.GetManifestAsync(ct);
             var mv = manifest.Versions.FirstOrDefault(v => v.Id == inst.McVersion)
-                     ?? throw new InvalidOperationException($"Версия {inst.McVersion} не найдена в манифесте.");
+                     ?? throw new InvalidOperationException($"������ {inst.McVersion} �� ������� � ���������.");
             var baseDetail = await _versions.GetVersionDetailAsync(mv, ct);
 
             // 3. Java
             var requiredJava = baseDetail.JavaVersion?.MajorVersion ?? JavaService.RequiredJavaFor(inst.McVersion);
-            SetStage($"Проверяю Java {requiredJava}...");
+            SetStage($"�������� Java {requiredJava}...");
 
             JavaInstallation java;
             var javaOverride = !string.IsNullOrWhiteSpace(inst.JavaPath) ? inst.JavaPath : _settings.CustomJavaPath;
@@ -1987,9 +1859,9 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(javaOverride) && File.Exists(javaOverride))
             {
                 java = JavaService.Probe(javaOverride, "custom")
-                       ?? throw new InvalidOperationException("Указанный java.exe не отвечает.");
+                       ?? throw new InvalidOperationException("��������� java.exe �� ��������.");
                 if (java.MajorVersion < requiredJava)
-                    AppendLog($"ВНИМАНИЕ: выбрана Java {java.MajorVersion}, нужна {requiredJava}.");
+                    AppendLog($"��������: ������� Java {java.MajorVersion}, ����� {requiredJava}.");
             }
             else
             {
@@ -1998,10 +1870,10 @@ public partial class MainWindow : Window
 
             Dispatcher.Invoke(() => TxtBadgeJava.Text = $"Java {java.MajorVersion}");
 
-            // 4. Ванильные файлы (нужны и модлоадеру)
+            // 4. ��������� ����� (����� � ����������)
             await Task.Run(() => _downloads.InstallVersionAsync(baseDetail, ct), ct);
 
-            // 5. Модлоадер
+            // 5. ���������
             var launchId = inst.EffectiveVersionId;
 
             if (inst.Loader != LoaderKind.Vanilla)
@@ -2011,7 +1883,7 @@ public partial class MainWindow : Window
 
                 if (!alreadyInstalled)
                 {
-                    SetStage($"Устанавливаю {inst.Loader.Display()} {inst.LoaderVersion}...");
+                    SetStage($"������������ {inst.Loader.Display()} {inst.LoaderVersion}...");
                     launchId = await _loaders.InstallAsync(
                         inst.Loader, inst.McVersion, inst.LoaderVersion!, java, ct);
 
@@ -2024,24 +1896,24 @@ public partial class MainWindow : Window
                 }
             }
 
-            // 6. Итоговый профиль (со слиянием inheritsFrom) и его файлы
-            SetStage("Готовлю файлы запуска...");
+            // 6. �������� ������� (�� �������� inheritsFrom) � ��� �����
+            SetStage("������� ����� �������...");
             var finalDetail = await _versions.ResolveAsync(launchId, ct);
             var install = await Task.Run(() => _downloads.InstallVersionAsync(finalDetail, ct), ct);
 
-            NotifyFinished("Загрузка завершена", $"«{inst.Name}» готова к запуску");
+            NotifyFinished("�������� ���������", $"�{inst.Name}� ������ � �������");
 
-            // 7. Запуск
-            SetStage("Запускаю Minecraft...");
+            // 7. ������
+            SetStage("�������� Minecraft...");
             InstanceService.EnsureFolders(inst);
 
-            // Русский язык из коробки — как в TLegacy. Существующий options.txt не трогаем.
+            // ������� ���� �� ������� � ��� � TLegacy. ������������ options.txt �� �������.
             if (_settings.AutoSetGameLanguage)
             {
                 var created = GameOptionsService.EnsureLanguage(
                     InstanceService.InstanceDir(inst), inst.McVersion, _settings.GameLanguage);
                 if (created)
-                    AppendLog($"Язык игры установлен: " +
+                    AppendLog($"���� ���� ����������: " +
                               GameOptionsService.LanguageCodeFor(inst.McVersion, _settings.GameLanguage));
             }
 
@@ -2077,9 +1949,9 @@ public partial class MainWindow : Window
             inst.LastPlayed = DateTimeOffset.Now;
             InstanceService.SaveAll(_instances);
 
-            AppendLog($"Minecraft запущен (PID {proc.Id}), сборка «{inst.Name}».");
-            if (serverAddress is not null) AppendLog($"Автоподключение к серверу {serverAddress}.");
-            SetStage("Игра запущена");
+            AppendLog($"Minecraft ������� (PID {proc.Id}), ������ �{inst.Name}�.");
+            if (serverAddress is not null) AppendLog($"��������������� � ������� {serverAddress}.");
+            SetStage("���� ��������");
 
             if (_settings.CloseLauncherOnStart)
             {
@@ -2090,28 +1962,28 @@ public partial class MainWindow : Window
 
             if (_settings.MinimizeOnLaunch) WindowState = WindowState.Minimized;
 
-            // Ловим мгновенные краши
+            // ����� ���������� �����
             var exitedFast = await Task.Run(() => proc.WaitForExit(9000), ct);
             if (exitedFast && proc.ExitCode != 0)
             {
                 WindowState = WindowState.Normal;
                 Activate();
-                AppendLog($"Игра завершилась сразу с кодом {proc.ExitCode}.");
+                AppendLog($"���� ����������� ����� � ����� {proc.ExitCode}.");
                 MessageBox.Show(
-                    $"Minecraft завершился с кодом {proc.ExitCode}.\nОткройте «Консоль» для деталей.",
-                    "Игра не запустилась", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    $"Minecraft ���������� � ����� {proc.ExitCode}.\n�������� ��������� ��� �������.",
+                    "���� �� �����������", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (OperationCanceledException)
         {
-            AppendLog("Операция отменена.");
-            SetStage("Отменено");
+            AppendLog("�������� ��������.");
+            SetStage("��������");
         }
         catch (Exception ex)
         {
-            Log.Error("Ошибка запуска", ex);
-            MessageBox.Show(ex.Message, "Ошибка запуска", MessageBoxButton.OK, MessageBoxImage.Error);
-            SetStage("Ошибка");
+            Log.Error("������ �������", ex);
+            MessageBox.Show(ex.Message, "������ �������", MessageBoxButton.OK, MessageBoxImage.Error);
+            SetStage("������");
         }
         finally
         {
@@ -2129,10 +2001,10 @@ public partial class MainWindow : Window
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
         _cts?.Cancel();
-        SetStage("Отмена...");
+        SetStage("������...");
     }
 
-    // ---------- Остановка ----------
+    // ---------- ��������� ----------
 
     private async void BtnStopGame_Click(object sender, RoutedEventArgs e)
     {
@@ -2144,26 +2016,26 @@ public partial class MainWindow : Window
         {
             var names = string.Join(", ", running.Select(s => s.InstanceName));
             var r = MessageBox.Show(
-                $"Закрыть игру: {names}?\n\nНесохранённый прогресс может быть потерян.",
-                "Остановить игру", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                $"������� ����: {names}?\n\n������������� �������� ����� ���� �������.",
+                "���������� ����", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r != MessageBoxResult.Yes) return;
         }
 
         BtnStopGame.IsEnabled = false;
-        BtnStopGame.Content = "ОСТАНАВЛИВАЮ…";
+        BtnStopGame.Content = "�����������ޅ";
 
         try
         {
             foreach (var s in running)
             {
-                AppendLog($"Останавливаю «{s.InstanceName}» (PID {s.Pid})...");
+                AppendLog($"������������ �{s.InstanceName}� (PID {s.Pid})...");
                 await _sessions.StopAsync(s);
             }
         }
         finally
         {
             BtnStopGame.IsEnabled = true;
-            BtnStopGame.Content = "ОСТАНОВИТЬ";
+            BtnStopGame.Content = "����������";
             UpdateRunStateUi();
         }
     }
@@ -2181,14 +2053,14 @@ public partial class MainWindow : Window
                 InstanceService.SaveAll(_instances);
                 if (ReferenceEquals(inst, _selectedInstance))
                 {
-                    TxtInstPlaytime.Text = "В игре: " + inst.PlayTimeDisplay;
+                    TxtInstPlaytime.Text = "� ����: " + inst.PlayTimeDisplay;
                     RefreshInstanceStats();
                     LoadScreenshots();
                 }
             }
 
-            AppendLog($"--- «{session.InstanceName}» завершилась (код {code}), " +
-                      $"время сессии {session.UptimeDisplay} ---");
+            AppendLog($"--- �{session.InstanceName}� ����������� (��� {code}), " +
+                      $"����� ������ {session.UptimeDisplay} ---");
 
             if (WindowState == WindowState.Minimized && !_sessions.AnyRunning)
                 WindowState = WindowState.Normal;
@@ -2197,7 +2069,7 @@ public partial class MainWindow : Window
         });
     }
 
-    /// <summary>Переключает кнопки «ИГРАТЬ» / «ОСТАНОВИТЬ» и бейдж в заголовке.</summary>
+    /// <summary>����������� ������ ������ܻ / ����������ܻ � ����� � ���������.</summary>
     private void UpdateRunStateUi()
     {
         _sessions.Prune();
@@ -2206,17 +2078,17 @@ public partial class MainWindow : Window
         var thisRunning = _selectedInstance is not null &&
                           _sessions.IsInstanceRunning(_selectedInstance.Id);
 
-        // Кнопка «Играть» прячется, когда игра идёт и мультизапуск запрещён
+        // ������ �������� ��������, ����� ���� ��� � ������������ ��������
         var hidePlay = !_busy && anyRunning && (!_settings.AllowMultipleInstances || thisRunning);
 
         BtnPlay.Visibility = hidePlay ? Visibility.Collapsed : Visibility.Visible;
         BtnStopGame.Visibility = anyRunning ? Visibility.Visible : Visibility.Collapsed;
 
         BtnPlay.IsEnabled = !_busy;
-        BtnPlay.Content = _busy ? "ПОДГОТОВКА…"
+        BtnPlay.Content = _busy ? "�����������"
             : _selectedInstance is not null && !File.Exists(GamePaths.ForInstance(_selectedInstance).VersionJar(_selectedInstance.McVersion))
-                ? "УСТАНОВИТЬ И ИГРАТЬ"
-                : "ИГРАТЬ";
+                ? "���������� � ������"
+                : "������";
 
         RunningBadge.Visibility = anyRunning ? Visibility.Visible : Visibility.Collapsed;
         BtnDeleteInstance.IsEnabled = !thisRunning;
@@ -2230,14 +2102,14 @@ public partial class MainWindow : Window
         if (running.Count == 0) return;
 
         TxtRunningBadge.Text = running.Count == 1
-            ? $"{running[0].InstanceName} · {running[0].UptimeDisplay}"
-            : $"Запущено игр: {running.Count}";
+            ? $"{running[0].InstanceName} � {running[0].UptimeDisplay}"
+            : $"�������� ���: {running.Count}";
 
-        BtnStopGame.Content = running.Count > 1 ? $"ОСТАНОВИТЬ ({running.Count})" : "ОСТАНОВИТЬ";
+        BtnStopGame.Content = running.Count > 1 ? $"���������� ({running.Count})" : "����������";
     }
 
     // =====================================================================
-    //  АККАУНТ
+    //  �������
     // =====================================================================
 
     private void TxtOfflineName_TextChanged(object sender, TextChangedEventArgs e)
@@ -2247,14 +2119,14 @@ public partial class MainWindow : Window
         var name = TxtOfflineName.Text;
         if (string.IsNullOrWhiteSpace(name))
         {
-            TxtOfflineHint.Text = "Введите никнейм (3-16 символов).";
+            TxtOfflineHint.Text = "������� ������� (3-16 ��������).";
             TxtOfflineHint.Foreground = (Brush)FindResource("FgMuted");
             return;
         }
 
         if (OfflineAccountService.TryValidateName(name, out var error))
         {
-            TxtOfflineHint.Text = "UUID будет: " + Dashed(OfflineAccountService.GenerateOfflineUuid(name.Trim()));
+            TxtOfflineHint.Text = "UUID �����: " + Dashed(OfflineAccountService.GenerateOfflineUuid(name.Trim()));
             TxtOfflineHint.Foreground = (Brush)FindResource("Accent");
         }
         else
@@ -2287,9 +2159,9 @@ public partial class MainWindow : Window
             AccountStorage.Save(acc);
             SetAccount(acc, refreshSkin: true);
 
-            TxtOfflineHint.Text = "Оффлайн-профиль создан.";
+            TxtOfflineHint.Text = "�������-������� ������.";
             TxtOfflineHint.Foreground = (Brush)FindResource("Accent");
-            AppendLog($"Создан оффлайн-аккаунт: {acc.Username} ({acc.DashedUuid})");
+            AppendLog($"������ �������-�������: {acc.Username} ({acc.DashedUuid})");
         }
         catch (Exception ex)
         {
@@ -2305,14 +2177,13 @@ public partial class MainWindow : Window
             : $"{u[..8]}-{u.Substring(8, 4)}-{u.Substring(12, 4)}-{u.Substring(16, 4)}-{u.Substring(20)}";
     }
 
-    private void BtnLogout_Click(object sender, RoutedEventArgs e)
+private void BtnLogout_Click(object sender, RoutedEventArgs e)
     {
         AccountStorage.Clear();
         _account = null;
 
         TxtAccName.Text = "—";
         TxtAccUuid.Text = "";
-        TxtAuthState.Text = "Вы не вошли в аккаунт.";
         TxtSideName.Text = "Не выполнен вход";
         TxtSideStatus.Text = "Оффлайн";
         ImgSkinPreview.Source = null;
@@ -2320,7 +2191,6 @@ public partial class MainWindow : Window
         ImgAvatar.Source = null;
         TxtSkinPlaceholder.Visibility = Visibility.Visible;
 
-        BtnLogout.IsEnabled = false;
         BtnUploadSkin.IsEnabled = false;
         BtnResetSkin.IsEnabled = false;
 
@@ -2329,7 +2199,7 @@ public partial class MainWindow : Window
         TxtOfflineHint.Foreground = (Brush)FindResource("FgMuted");
         TxtSkinStatus.Text = "";
 
-        AppendLog("Выполнен выход из аккаунта.");
+        AppendLog("�������� ����� �� ��������.");
     }
 
     private async void BtnTwitchLogin_Click(object sender, RoutedEventArgs e)
@@ -2337,8 +2207,8 @@ public partial class MainWindow : Window
         if (_twitchAuth.IsLoggingIn) return;
 
         BtnTwitchLogin.IsEnabled = false;
-        BtnTwitchLogin.Content = "Ожидание...";
-        SetStage("Авторизация через Twitch...");
+        BtnTwitchLogin.Content = "��������...";
+        SetStage("����������� ����� Twitch...");
 
         try
         {
@@ -2349,21 +2219,21 @@ public partial class MainWindow : Window
                 TwitchStorage.Save(account);
                 _twitchStream.StartMonitoring(account);
                 UpdateTwitchUI();
-                AppendLog($"Twitch: авторизован как {account.Username}");
+                UpdateStreamInfoDisplay(null);
+                AppendLog($"Twitch: ����������� ��� {account.Username}");
             }
             else
             {
-                AppendLog("Twitch: авторизация отменена или не удалась.");
+                AppendLog("Twitch: ����������� �������� ��� �� �������.");
             }
         }
-        catch (Exception ex)
-        {
-            AppendLog("Twitch ошибка: " + ex.Message);
-        }
+catch (Exception ex)
+                {
+                    AppendLog("Не удалось обновить сессию: " + ex.Message);
+                }
         finally
         {
             BtnTwitchLogin.IsEnabled = true;
-            BtnTwitchLogin.Content = "Войти через Twitch";
             HideProgress();
         }
     }
@@ -2372,13 +2242,24 @@ public partial class MainWindow : Window
     {
         if (_twitchAccount != null)
         {
-            BtnTwitchLogin.Content = $"Twitch: {_twitchAccount.Username}";
-            BtnTwitchLogin.IsEnabled = false;
+            TwitchAuthPanel.Visibility = Visibility.Collapsed;
+            TwitchAccountPanel.Visibility = Visibility.Visible;
+            TwitchAccountName.Text = _twitchAccount.Username;
+            TwitchAccountStatus.Text = "�� ������������ ����� Twitch";
+
+            if (!string.IsNullOrEmpty(_twitchAccount.ProfileImageUrl))
+            {
+                try
+                {
+                    TwitchAccountAvatar.Source = new BitmapImage(new Uri(_twitchAccount.ProfileImageUrl));
+                }
+                catch { TwitchAccountAvatar.Source = null; }
+            }
         }
         else
         {
-            BtnTwitchLogin.Content = "Войти через Twitch";
-            BtnTwitchLogin.IsEnabled = true;
+            TwitchAuthPanel.Visibility = Visibility.Visible;
+            TwitchAccountPanel.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -2398,7 +2279,7 @@ public partial class MainWindow : Window
 
         if (info == null)
         {
-            StreamsStatus.Text = "Проверка...";
+            StreamsStatus.Text = "��������...";
             StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
             StreamsTitle.Text = "";
             StreamsGame.Text = "";
@@ -2409,16 +2290,16 @@ public partial class MainWindow : Window
 
         if (info.IsLive)
         {
-            StreamsStatus.Text = "● В ЭФИРЕ";
+            StreamsStatus.Text = "? � �����";
             StreamsStatus.Foreground = (Brush)FindResource("Danger");
             StreamsTitle.Text = info.Title;
-            StreamsGame.Text = $"Игра: {info.GameName}";
-            StreamsViewers.Text = $"Зрителей: {info.ViewerCount}";
+            StreamsGame.Text = $"����: {info.GameName}";
+            StreamsViewers.Text = $"��������: {info.ViewerCount}";
             BtnOpenStream.IsEnabled = true;
         }
         else
         {
-            StreamsStatus.Text = "Канал сейчас оффлайн";
+            StreamsStatus.Text = "����� ������ �������";
             StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
             StreamsTitle.Text = "";
             StreamsGame.Text = "";
@@ -2443,7 +2324,29 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SetAccount(MinecraftAccount acc, bool refreshSkin)
+    private async void BtnTwitchLogout_Click(object sender, RoutedEventArgs e)
+    {
+        _twitchStream.StopMonitoring();
+        TwitchStorage.Clear();
+        _twitchAccount = null;
+        _currentStreamInfo = null;
+        UpdateTwitchUI();
+        UpdateStreamInfoDisplay(null);
+        AppendLog("Twitch: выполнен выход из аккаунта.");
+    }
+
+    private async Task RefreshStreamStatusAsync()
+    {
+        if (_twitchAccount == null)
+        {
+            UpdateStreamInfoDisplay(null);
+            return;
+        }
+        var info = await _twitchStream.GetStreamInfoAsync().ConfigureAwait(false);
+        Dispatcher.Invoke(() => UpdateStreamInfoDisplay(info));
+    }
+
+private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         _account = acc;
 
@@ -2452,26 +2355,20 @@ public partial class MainWindow : Window
 
         if (acc.IsOffline)
         {
-            TxtAuthState.Text = "Активен оффлайн-профиль. Для официальных серверов и смены скина " +
-                                "войдите через Microsoft.";
             TxtSideStatus.Text = "Оффлайн-профиль";
         }
         else
         {
-            TxtAuthState.Text = acc.IsExpired
-                ? "Сессия истекла — потребуется повторный вход."
-                : $"Вход выполнен. Сессия активна до {acc.ExpiresAt.ToLocalTime():dd.MM.yyyy HH:mm}.";
             TxtSideStatus.Text = acc.IsExpired ? "Сессия истекла" : "Microsoft · онлайн";
         }
 
         TxtSideName.Text = acc.Username;
-        BtnLogout.IsEnabled = true;
         BtnUploadSkin.IsEnabled = !acc.IsOffline;
         BtnResetSkin.IsEnabled = !acc.IsOffline;
 
         if (acc.IsOffline)
         {
-            TxtSkinStatus.Text = "Смена скина недоступна для оффлайн-профиля.";
+            TxtSkinStatus.Text = "����� ����� ���������� ��� �������-�������.";
             TxtSkinStatus.Foreground = (Brush)FindResource("FgMuted");
         }
 
@@ -2497,7 +2394,7 @@ public partial class MainWindow : Window
                 if (avatar is not null) ImgAvatar.Source = ToImage(avatar);
             });
         }
-        catch (Exception ex) { Log.Warn("Не удалось загрузить скин: " + ex.Message); }
+        catch (Exception ex) { Log.Warn("�� ������� ��������� ����: " + ex.Message); }
     }
 
     private static BitmapImage ToImage(byte[] data)
@@ -2515,17 +2412,17 @@ public partial class MainWindow : Window
     private async void BtnRefreshSkin_Click(object sender, RoutedEventArgs e)
     {
         if (_account is null) return;
-        TxtSkinStatus.Text = "Обновляю превью...";
+        TxtSkinStatus.Text = "�������� ������...";
         await LoadSkinImagesAsync(_account);
-        TxtSkinStatus.Text = "Превью обновлено.";
+        TxtSkinStatus.Text = "������ ���������.";
     }
 
     private void BtnBrowseSkin_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Выберите файл скина",
-            Filter = "PNG изображения (*.png)|*.png|Все файлы (*.*)|*.*",
+            Title = "�������� ���� �����",
+            Filter = "PNG ����������� (*.png)|*.png|��� ����� (*.*)|*.*",
             CheckFileExists = true
         };
         if (dlg.ShowDialog(this) != true) return;
@@ -2535,7 +2432,7 @@ public partial class MainWindow : Window
         try
         {
             SkinService.ValidateSkinPng(File.ReadAllBytes(dlg.FileName));
-            TxtSkinStatus.Text = "Файл корректный. Нажмите «Сменить скин».";
+            TxtSkinStatus.Text = "���� ����������. ������� �������� �����.";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
         }
         catch (Exception ex)
@@ -2552,20 +2449,20 @@ public partial class MainWindow : Window
         var path = TxtSkinPath.Text.Trim();
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            TxtSkinStatus.Text = "Сначала выберите PNG-файл скина.";
+            TxtSkinStatus.Text = "������� �������� PNG-���� �����.";
             TxtSkinStatus.Foreground = (Brush)FindResource("Danger");
             return;
         }
 
         BtnUploadSkin.IsEnabled = false;
         TxtSkinStatus.Foreground = (Brush)FindResource("FgMuted");
-        TxtSkinStatus.Text = "Отправляю скин на серверы Mojang...";
+        TxtSkinStatus.Text = "��������� ���� �� ������� Mojang...";
 
         try
         {
             if (_account.IsOffline)
                 throw new InvalidOperationException(
-                    "Смена скина доступна только для аккаунта Microsoft.");
+                    "����� ����� �������� ������ ��� �������� Microsoft.");
 
             if (_account.IsExpired && !string.IsNullOrEmpty(_account.MicrosoftRefreshToken))
             {
@@ -2577,16 +2474,16 @@ public partial class MainWindow : Window
             var model = RbSlim.IsChecked == true ? SkinService.SkinModel.Slim : SkinService.SkinModel.Classic;
             await _skins.UploadSkinAsync(_account.AccessToken, path, model);
 
-            TxtSkinStatus.Text = "Скин изменён! Обновляю превью...";
+            TxtSkinStatus.Text = "���� �������! �������� ������...";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
 
             await Task.Delay(2500);
             await LoadSkinImagesAsync(_account);
-            TxtSkinStatus.Text = "Скин успешно изменён.";
+            TxtSkinStatus.Text = "���� ������� �������.";
         }
         catch (Exception ex)
         {
-            Log.Error("Ошибка смены скина", ex);
+            Log.Error("������ ����� �����", ex);
             TxtSkinStatus.Text = ex.Message;
             TxtSkinStatus.Foreground = (Brush)FindResource("Danger");
         }
@@ -2597,14 +2494,14 @@ public partial class MainWindow : Window
     {
         if (_account is null) return;
 
-        if (MessageBox.Show("Сбросить скин на стандартный?", "Подтверждение",
+        if (MessageBox.Show("�������� ���� �� �����������?", "�������������",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
         BtnResetSkin.IsEnabled = false;
         try
         {
             await _skins.ResetSkinAsync(_account.AccessToken);
-            TxtSkinStatus.Text = "Скин сброшен.";
+            TxtSkinStatus.Text = "���� �������.";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
             await Task.Delay(2000);
             await LoadSkinImagesAsync(_account);
@@ -2618,11 +2515,11 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ПРОЧЕЕ
+    //  ������
     // =====================================================================
 
     // =====================================================================
-    //  НАСТРОЙКИ: РАЗДЕЛЫ И ДЕЙСТВИЯ
+    //  ���������: ������� � ��������
     // =====================================================================
 
     private void SettingsSection_Checked(object sender, RoutedEventArgs e)
@@ -2643,7 +2540,7 @@ public partial class MainWindow : Window
         if (tag == "storage") RefreshPortableState();
     }
 
-    /// <summary>Любое изменение настройки — сразу сохраняем на диск.</summary>
+    /// <summary>����� ��������� ��������� � ����� ��������� �� ����.</summary>
     private void Setting_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded || _initializing) return;
@@ -2677,7 +2574,7 @@ public partial class MainWindow : Window
 
     private void BtnRescanJava_Click(object sender, RoutedEventArgs e)
     {
-        TxtJavaList.Text = "Поиск…";
+        TxtJavaList.Text = "�����";
         _ = Task.Run(DetectJava);
     }
 
@@ -2689,15 +2586,15 @@ public partial class MainWindow : Window
         _ = Task.Run(DetectJava);
     }
 
-    // ---------- Управление версиями игры ----------
+    // ---------- ���������� �������� ���� ----------
 
     private List<InstalledVersion> _installedVersions = new();
 
-    // ---------- Сохранение и сброс по разделам ----------
+    // ---------- ���������� � ����� �� �������� ----------
 
     private string _currentSettingsSection = "game";
 
-    // Текстовые поля сохраняем с задержкой, чтобы не писать файл на каждую букву
+    // ��������� ���� ��������� � ���������, ����� �� ������ ���� �� ������ �����
     private DispatcherTimer? _autoSaveTimer;
 
     private void ScheduleAutoSave(Action action)
@@ -2734,19 +2631,19 @@ public partial class MainWindow : Window
         ScheduleAutoSave(() => InstSetting_Changed(sender, e));
     }
 
-    /// <summary>Ненавязчиво показываем, что изменения записаны.</summary>
+    /// <summary>����������� ����������, ��� ��������� ��������.</summary>
     private void ShowSavedHint()
     {
         if (TxtSettingsHint is null) return;
 
-        TxtSettingsHint.Text = $"Сохранено в {DateTime.Now:HH:mm:ss}";
+        TxtSettingsHint.Text = $"��������� � {DateTime.Now:HH:mm:ss}";
         TxtSettingsHint.Foreground = (Brush)FindResource("Accent");
 
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         t.Tick += (s, _) =>
         {
             t.Stop();
-            TxtSettingsHint.Text = "Изменения применяются и сохраняются сразу";
+            TxtSettingsHint.Text = "��������� ����������� � ����������� �����";
             TxtSettingsHint.Foreground = (Brush)FindResource("FgMuted");
         };
         t.Start();
@@ -2756,23 +2653,23 @@ public partial class MainWindow : Window
     {
         var sectionName = _currentSettingsSection switch
         {
-            "java" => "«Java и память»",
-            "view" => "«Внешний вид»",
-            "storage" => "«Хранилище»",
-            "versions" => "«Версии игры»",
-            "maint" => "«Обслуживание»",
-            _ => "«Игра»"
+            "java" => "�Java � �������",
+            "view" => "�������� ���",
+            "storage" => "����������",
+            "versions" => "������� �����",
+            "maint" => "�������������",
+            _ => "�����"
         };
 
         if (_currentSettingsSection is "versions" or "maint")
         {
-            MessageBox.Show($"В разделе {sectionName} нет настроек для сброса.",
-                "Сброс", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"� ������� {sectionName} ��� �������� ��� ������.",
+                "�����", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        if (MessageBox.Show($"Сбросить настройки раздела {sectionName} к значениям по умолчанию?",
-                "Сброс раздела", MessageBoxButton.YesNo, MessageBoxImage.Question)
+        if (MessageBox.Show($"�������� ��������� ������� {sectionName} � ��������� �� ���������?",
+                "����� �������", MessageBoxButton.YesNo, MessageBoxImage.Question)
             != MessageBoxResult.Yes) return;
 
         var def = new LauncherSettings();
@@ -2828,10 +2725,10 @@ public partial class MainWindow : Window
         SettingsService.Save(_settings);
         ApplySettingsToUi();
 
-        AppendLog($"Раздел {sectionName} сброшен.");
+        AppendLog($"������ {sectionName} �������.");
     }
 
-    // ---------- Своя цветовая схема ----------
+    // ---------- ���� �������� ����� ----------
 
     private void BtnCustomTheme_Click(object sender, RoutedEventArgs e)
     {
@@ -2855,13 +2752,13 @@ public partial class MainWindow : Window
         ApplyWindowBackground();
         SettingsService.Save(_settings);
 
-        AppendLog("Применена своя цветовая схема.");
+        AppendLog("��������� ���� �������� �����.");
     }
     private void BtnScanVersions_Click(object sender, RoutedEventArgs e) => ScanVersions();
 
     private void ScanVersions()
     {
-        TxtVersionsSummary.Text = "Сканирую…";
+        TxtVersionsSummary.Text = "���������";
 
         try
         {
@@ -2869,8 +2766,8 @@ public partial class MainWindow : Window
 
             var total = _installedVersions.Sum(v => v.SizeBytes);
             TxtVersionsSummary.Text = _installedVersions.Count == 0
-                ? "Версии ещё не установлены. Они появятся после первого запуска игры."
-                : $"Всего версий: {_installedVersions.Count}  ·  занято {Human(total)}";
+                ? "������ ��� �� �����������. ��� �������� ����� ������� ������� ����."
+                : $"����� ������: {_installedVersions.Count}  �  ������ {Human(total)}";
 
             ItemsVersions.ItemsSource = _installedVersions.Select(v =>
             {
@@ -2883,17 +2780,17 @@ public partial class MainWindow : Window
                 };
 
                 var parts = new List<string> { v.SizeDisplay };
-                if (v.IsIsolated) parts.Add($"изолированная · {v.OwnerInstance}");
-                if (!v.HasJar) parts.Add("клиент не загружен");
-                if (v.InheritsFrom is not null) parts.Add($"на базе {v.InheritsFrom}");
-                parts.Add(v.InUse ? "используется: " + string.Join(", ", v.UsedBy) : "не используется");
+                if (v.IsIsolated) parts.Add($"������������� � {v.OwnerInstance}");
+                if (!v.HasJar) parts.Add("������ �� ��������");
+                if (v.InheritsFrom is not null) parts.Add($"�� ���� {v.InheritsFrom}");
+                parts.Add(v.InUse ? "������������: " + string.Join(", ", v.UsedBy) : "�� ������������");
 
                 return new
                 {
                     v.Id,
                     v.Kind,
                     Dir = v.Directory,
-                    Info = string.Join("  ·  ", parts),
+                    Info = string.Join("  �  ", parts),
                     KindBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bg)),
                     KindFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(fg))
                 };
@@ -2901,7 +2798,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtVersionsSummary.Text = "Ошибка сканирования: " + ex.Message;
+            TxtVersionsSummary.Text = "������ ������������: " + ex.Message;
         }
     }
 
@@ -2921,40 +2818,40 @@ public partial class MainWindow : Window
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("Сначала остановите игру — файлы версии сейчас заняты.",
-                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("������� ���������� ���� � ����� ������ ������ ������.",
+                "���� ��������", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var warn = version.InUse
-            ? $"\n\nВНИМАНИЕ: версию используют сборки: {string.Join(", ", version.UsedBy)}.\n" +
-              "После удаления они скачают файлы заново при запуске."
+            ? $"\n\n��������: ������ ���������� ������: {string.Join(", ", version.UsedBy)}.\n" +
+              "����� �������� ��� ������� ����� ������ ��� �������."
             : "";
 
         var r = MessageBox.Show(
-            $"Удалить версию «{version.Id}»?\n\n" +
-            $"Освободится {version.SizeDisplay}.\n" +
-            "Моды, миры и настройки сборок затронуты не будут." + warn,
-            "Удаление версии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            $"������� ������ �{version.Id}�?\n\n" +
+            $"����������� {version.SizeDisplay}.\n" +
+            "����, ���� � ��������� ������ ��������� �� �����." + warn,
+            "�������� ������", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (r != MessageBoxResult.Yes) return;
 
         try
         {
             var freed = VersionManagerService.Delete(version);
-            AppendLog($"Версия {version.Id} удалена, освобождено {Human(freed)}.");
+            AppendLog($"������ {version.Id} �������, ����������� {Human(freed)}.");
             ScanVersions();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось удалить: " + ex.Message + "\n\n" +
-                            "Возможно, файлы заняты другой программой.",
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� �������: " + ex.Message + "\n\n" +
+                            "��������, ����� ������ ������ ����������.",
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private void BtnCalcSize_Click(object sender, RoutedEventArgs e)
     {
-        TxtStorageInfo.Text = "Считаю…";
+        TxtStorageInfo.Text = "�������";
 
         _ = Task.Run(() =>
         {
@@ -2982,19 +2879,19 @@ public partial class MainWindow : Window
             {
                 var s = Size(InstanceService.InstanceDir(inst));
                 instancesTotal += s;
-                perInstance.Add($"     • {inst.Name}: {Human(s)}" + (inst.Isolated ? "  (изолированная)" : ""));
+                perInstance.Add($"     � {inst.Name}: {Human(s)}" + (inst.Isolated ? "  (�������������)" : ""));
             }
 
             var text =
-                $"Общее хранилище:\n" +
-                $"     библиотеки: {Human(libs)}\n" +
-                $"     ресурсы: {Human(assets)}\n" +
-                $"     версии: {Human(versions)}\n" +
+                $"����� ���������:\n" +
+                $"     ����������: {Human(libs)}\n" +
+                $"     �������: {Human(assets)}\n" +
+                $"     ������: {Human(versions)}\n" +
                 $"     Java: {Human(runtime)}\n" +
-                $"     кэш: {Human(cache)}\n\n" +
-                $"Сборки ({_instances.Count}): {Human(instancesTotal)}\n" +
+                $"     ���: {Human(cache)}\n\n" +
+                $"������ ({_instances.Count}): {Human(instancesTotal)}\n" +
                 string.Join("\n", perInstance) +
-                $"\n\nВсего: {Human(libs + assets + versions + runtime + cache + instancesTotal)}";
+                $"\n\n�����: {Human(libs + assets + versions + runtime + cache + instancesTotal)}";
 
             Dispatcher.Invoke(() => TxtStorageInfo.Text = text);
         });
@@ -3009,30 +2906,30 @@ public partial class MainWindow : Window
             {
                 foreach (var f in Directory.GetFiles(LauncherPaths.CacheDir))
                 {
-                    // манифест версий оставляем — он нужен в офлайне
+                    // �������� ������ ��������� � �� ����� � �������
                     if (f.EndsWith("version_manifest_v2.json", StringComparison.OrdinalIgnoreCase)) continue;
                     try { freed += new FileInfo(f).Length; File.Delete(f); } catch { }
                 }
             }
 
-            TxtMaintenance.Text = $"Кэш очищен, освобождено {Human(freed)}.";
-            AppendLog($"Кэш очищен ({Human(freed)}).");
+            TxtMaintenance.Text = $"��� ������, ����������� {Human(freed)}.";
+            AppendLog($"��� ������ ({Human(freed)}).");
         }
         catch (Exception ex)
         {
-            TxtMaintenance.Text = "Не удалось очистить кэш: " + ex.Message;
+            TxtMaintenance.Text = "�� ������� �������� ���: " + ex.Message;
         }
     }
 
     private async void BtnCheckCurse_Click(object sender, RoutedEventArgs e)
     {
-        TxtMaintenance.Text = "Проверяю доступ к CurseForge API…";
+        TxtMaintenance.Text = "�������� ������ � CurseForge API�";
 
         var ok = await _mods.CheckCurseForgeAsync();
 
         TxtMaintenance.Text = ok
-            ? "CurseForge API доступен — поиск работает по обоим источникам."
-            : _mods.CurseForgeError ?? "CurseForge недоступен, используется только Modrinth.";
+            ? "CurseForge API �������� � ����� �������� �� ����� ����������."
+            : _mods.CurseForgeError ?? "CurseForge ����������, ������������ ������ Modrinth.";
 
         UpdateModsSubtitle();
     }
@@ -3040,9 +2937,9 @@ public partial class MainWindow : Window
     private void BtnResetSettings_Click(object sender, RoutedEventArgs e)
     {
         var r = MessageBox.Show(
-            "Сбросить все настройки лаунчера к значениям по умолчанию?\n\n" +
-            "Сборки, моды и аккаунт затронуты не будут.",
-            "Сброс настроек", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            "�������� ��� ��������� �������� � ��������� �� ���������?\n\n" +
+            "������, ���� � ������� ��������� �� �����.",
+            "����� ��������", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (r != MessageBoxResult.Yes) return;
 
@@ -3062,12 +2959,12 @@ public partial class MainWindow : Window
         ApplyBanner();
         ApplyWindowBackground();
 
-        TxtMaintenance.Text = "Настройки сброшены.";
-        AppendLog("Настройки сброшены к значениям по умолчанию.");
+        TxtMaintenance.Text = "��������� ��������.";
+        AppendLog("��������� �������� � ��������� �� ���������.");
     }
 
     // =====================================================================
-    //  МОДЫ
+    //  ����
     // =====================================================================
 
     private List<ModSearchResult> _modResults = new();
@@ -3101,11 +2998,11 @@ public partial class MainWindow : Window
         _ => null
     };
 
-    /// <summary>Обновляет состояние пагинации под списком.</summary>
+    /// <summary>��������� ��������� ��������� ��� �������.</summary>
     private void UpdatePager(ModService.SearchPage page)
     {
         ModPager.Visibility = page.TotalCount > ModPageSize ? Visibility.Visible : Visibility.Collapsed;
-        TxtPageInfo.Text = $"Страница {page.PageNumber} из {page.TotalPages}";
+        TxtPageInfo.Text = $"�������� {page.PageNumber} �� {page.TotalPages}";
         BtnPrevPage.IsEnabled = page.HasPrevious;
         BtnNextPage.IsEnabled = page.HasNext;
     }
@@ -3124,7 +3021,7 @@ public partial class MainWindow : Window
         RunModSearch();
     }
 
-    /// <summary>Новый запрос — всегда с первой страницы.</summary>
+    /// <summary>����� ������ � ������ � ������ ��������.</summary>
     private void RunModSearchFromStart()
     {
         _modOffset = 0;
@@ -3133,14 +3030,14 @@ public partial class MainWindow : Window
 
     private void RunModSearch() => BtnModSearch_Click(this, new RoutedEventArgs());
 
-    /// <summary>Кнопка «Найти»: новый запрос с первой страницы.</summary>
+    /// <summary>������ ������: ����� ������ � ������ ��������.</summary>
     private void BtnModSearchNew_Click(object sender, RoutedEventArgs e) => RunModSearchFromStart();
 
     private async void BtnModSearch_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            TxtModStatus.Text = "Сначала выберите сборку — от неё зависят версия игры и загрузчик.";
+            TxtModStatus.Text = "������� �������� ������ � �� �� ������� ������ ���� � ���������.";
             return;
         }
 
@@ -3150,7 +3047,7 @@ public partial class MainWindow : Window
 
         BtnModSearch.IsEnabled = false;
         var type = SelectedContentType;
-        TxtModStatus.Text = "Ищу…";
+        TxtModStatus.Text = "���";
         ItemsMods.ItemsSource = null;
 
         try
@@ -3171,16 +3068,16 @@ public partial class MainWindow : Window
             if (_modResults.Count == 0)
             {
                 TxtModStatus.Text = _selectedInstance.Loader == LoaderKind.Vanilla && type == ModContentType.Mod
-                    ? $"Ничего не найдено. У сборки «{_selectedInstance.Name}» нет модлоадера — " +
-                      "для модов создайте сборку с Fabric, Forge или NeoForge."
-                    : $"Ничего не найдено для Minecraft {_selectedInstance.McVersion}.";
+                    ? $"������ �� �������. � ������ �{_selectedInstance.Name}� ��� ���������� � " +
+                      "��� ����� �������� ������ � Fabric, Forge ��� NeoForge."
+                    : $"������ �� ������� ��� Minecraft {_selectedInstance.McVersion}.";
                 UpdatePager(page);
                 return;
             }
 
-            var extra = _mods.CurseForgeAvailable ? "" : "  ·  только Modrinth";
-            TxtModStatus.Text = $"Найдено: {page.TotalCount}  ·  " +
-                                $"{_selectedInstance.McVersion} · {_selectedInstance.Loader.Display()}{extra}";
+            var extra = _mods.CurseForgeAvailable ? "" : "  �  ������ Modrinth";
+            TxtModStatus.Text = $"�������: {page.TotalCount}  �  " +
+                                $"{_selectedInstance.McVersion} � {_selectedInstance.Loader.Display()}{extra}";
 
             ItemsMods.ItemsSource = _modResults.Select((m, i) => BuildModView(m, i)).ToList();
             UpdatePager(page);
@@ -3191,16 +3088,16 @@ public partial class MainWindow : Window
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            TxtModStatus.Text = "Ошибка поиска: " + ex.Message;
-            Log.Error("Поиск модов", ex);
+            TxtModStatus.Text = "������ ������: " + ex.Message;
+            Log.Error("����� �����", ex);
         }
         finally { BtnModSearch.IsEnabled = true; }
     }
 
     private object BuildModView(ModSearchResult m, int index)
     {
-        // Только то, что уже в кэше. Остальное догрузится асинхронно (LoadModIconsAsync),
-        // иначе WPF качает картинку прямо в UI-потоке и окно виснет.
+        // ������ ��, ��� ��� � ����. ��������� ���������� ���������� (LoadModIconsAsync),
+        // ����� WPF ������ �������� ����� � UI-������ � ���� ������.
         var icon = ImageCacheService.TryGetCached(m.IconUrl);
 
         var isModrinth = m.Provider == ModProvider.Modrinth;
@@ -3209,22 +3106,22 @@ public partial class MainWindow : Window
         {
             Index = index,
             m.Title,
-            Summary = string.IsNullOrWhiteSpace(m.Summary) ? "Без описания" : m.Summary,
+            Summary = string.IsNullOrWhiteSpace(m.Summary) ? "��� ��������" : m.Summary,
             Icon = icon,
             Initial = m.Title.Length > 0 ? m.Title[..1].ToUpperInvariant() : "?",
             PlaceholderVisibility = icon is null ? Visibility.Visible : Visibility.Collapsed,
             Source = m.ProviderDisplay,
             SourceBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isModrinth ? "#14301F" : "#33210F")),
             SourceFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isModrinth ? "#4ADE80" : "#FB923C")),
-            DownloadsText = m.DownloadsDisplay + " загрузок",
-            AuthorText = string.IsNullOrEmpty(m.Author) ? "" : "автор: " + m.Author,
+            DownloadsText = m.DownloadsDisplay + " ��������",
+            AuthorText = string.IsNullOrEmpty(m.Author) ? "" : "�����: " + m.Author,
             PageUrl = m.PageUrl ?? ""
         };
     }
 
     /// <summary>
-    /// Догружает иконки в фоне и обновляет список, когда они готовы.
-    /// Так каталог появляется мгновенно, а картинки подтягиваются постепенно.
+    /// ��������� ������ � ���� � ��������� ������, ����� ��� ������.
+    /// ��� ������� ���������� ���������, � �������� ������������� ����������.
     /// </summary>
     private async Task LoadModIconsAsync(List<ModSearchResult> items, CancellationToken ct)
     {
@@ -3252,10 +3149,10 @@ public partial class MainWindow : Window
     {
         if (sender is not FrameworkElement fe || fe.Tag is not string url || url.Length == 0) return;
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) { AppendLog("Не удалось открыть ссылку: " + ex.Message); }
+        catch (Exception ex) { AppendLog("�� ������� ������� ������: " + ex.Message); }
     }
 
-    /// <summary>Открывает страницу мода во встроенном браузере.</summary>
+    /// <summary>��������� �������� ���� �� ���������� ��������.</summary>
     private void ModPageInApp_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not int index) return;
@@ -3266,7 +3163,7 @@ public partial class MainWindow : Window
         var dlg = new ModBrowserDialog(project) { Owner = this };
         var result = dlg.ShowDialog();
 
-        // Из окна просмотра можно сразу поставить мод
+        // �� ���� ��������� ����� ����� ��������� ���
         if (result == true && dlg.InstallRequested)
             _ = InstallModAsync(project, null);
     }
@@ -3278,23 +3175,23 @@ public partial class MainWindow : Window
         await InstallModAsync(_modResults[index], btn);
     }
 
-    /// <summary>Общий путь установки: из каталога и из окна просмотра.</summary>
+    /// <summary>����� ���� ���������: �� �������� � �� ���� ���������.</summary>
     private async Task InstallModAsync(ModSearchResult project, Button? btn)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var inst = _selectedInstance;
 
-        if (btn is not null) { btn.IsEnabled = false; btn.Content = "…"; }
+        if (btn is not null) { btn.IsEnabled = false; btn.Content = "�"; }
 
         try
         {
-            // Диалог выбора версии — как в Modrinth App
+            // ������ ������ ������ � ��� � Modrinth App
             var dlg = new ModVersionDialog(_mods, project, inst.McVersion, inst.Loader) { Owner = this };
             if (dlg.ShowDialog() != true || dlg.SelectedFile is null) return;
 
@@ -3310,11 +3207,11 @@ public partial class MainWindow : Window
             var outcome = await _mods.InstallAsync(
                 chosen, targetDir, inst.McVersion, inst.Loader, dlg.InstallDependencies);
 
-            var msg = $"Установлено: {outcome.Installed.Count}";
-            if (outcome.Skipped.Count > 0) msg += $"\nПропущено: {string.Join(", ", outcome.Skipped)}";
-            if (outcome.Failed.Count > 0) msg += $"\nОшибки: {string.Join(", ", outcome.Failed)}";
+            var msg = $"�����������: {outcome.Installed.Count}";
+            if (outcome.Skipped.Count > 0) msg += $"\n���������: {string.Join(", ", outcome.Skipped)}";
+            if (outcome.Failed.Count > 0) msg += $"\n������: {string.Join(", ", outcome.Failed)}";
 
-            AppendLog($"«{project.Title}» → {msg.Replace("\n", "; ")}");
+            AppendLog($"�{project.Title}� > {msg.Replace("\n", "; ")}");
 
             MessageBox.Show(msg, project.Title,
                 outcome.Failed.Count > 0 ? MessageBoxButton.OK : MessageBoxButton.OK,
@@ -3324,12 +3221,12 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Log.Error("Установка мода", ex);
-            MessageBox.Show(ex.Message, "Ошибка установки", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.Error("��������� ����", ex);
+            MessageBox.Show(ex.Message, "������ ���������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
-            if (btn is not null) { btn.IsEnabled = true; btn.Content = "Установить"; }
+            if (btn is not null) { btn.IsEnabled = true; btn.Content = "����������"; }
         }
     }
 
@@ -3338,15 +3235,15 @@ public partial class MainWindow : Window
         if (TxtModsSubtitle is null) return;
 
         TxtModsSubtitle.Text = _mods.CurseForgeAvailable
-            ? "Каталог Modrinth и CurseForge"
-            : "Каталог Modrinth  ·  CurseForge недоступен с текущим ключом";
+            ? "������� Modrinth � CurseForge"
+            : "������� Modrinth  �  CurseForge ���������� � ������� ������";
     }
     private void SldMemory_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!IsLoaded) return;
         var mb = (int)e.NewValue;
-        TxtMemory.Text = $"{mb} МБ";
-        TxtBadgeRam.Text = $"RAM: {mb} МБ";
+        TxtMemory.Text = $"{mb} ��";
+        TxtBadgeRam.Text = $"RAM: {mb} ��";
         _settings.MaxMemoryMb = mb;
     }
 
@@ -3354,8 +3251,8 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Выберите java.exe",
-            Filter = "java.exe|java.exe;javaw.exe|Исполняемые файлы (*.exe)|*.exe",
+            Title = "�������� java.exe",
+            Filter = "java.exe|java.exe;javaw.exe|����������� ����� (*.exe)|*.exe",
             CheckFileExists = true
         };
         if (dlg.ShowDialog(this) != true) return;
@@ -3363,7 +3260,7 @@ public partial class MainWindow : Window
         var probe = JavaService.Probe(dlg.FileName, "custom");
         if (probe is null)
         {
-            MessageBox.Show("Не удалось определить версию Java.", "Java",
+            MessageBox.Show("�� ������� ���������� ������ Java.", "Java",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -3371,13 +3268,13 @@ public partial class MainWindow : Window
         TxtJavaPath.Text = dlg.FileName;
         _settings.CustomJavaPath = dlg.FileName;
         TxtBadgeJava.Text = $"Java {probe.MajorVersion}";
-        AppendLog("Выбрана Java: " + probe);
+        AppendLog("������� Java: " + probe);
     }
 
     private void BtnOpenDir_Click(object sender, RoutedEventArgs e)
     {
         try { InstanceService.OpenFolder(_settings.GameDir); }
-        catch (Exception ex) { AppendLog("Не удалось открыть папку: " + ex.Message); }
+        catch (Exception ex) { AppendLog("�� ������� ������� �����: " + ex.Message); }
     }
 
     private void BtnOpenLogFile_Click(object sender, RoutedEventArgs e)
@@ -3408,7 +3305,6 @@ public partial class MainWindow : Window
 
         PageContent.Visibility = tag == "7" ? Visibility.Visible : Visibility.Collapsed;
         PageBot.Visibility = tag == "8" ? Visibility.Visible : Visibility.Collapsed;
-        PageNews.Visibility = tag == "9" ? Visibility.Visible : Visibility.Collapsed;
         PageStreams.Visibility = tag == "10" ? Visibility.Visible : Visibility.Collapsed;
 
         if (tag == "1") { RefreshInstanceStats(); LoadScreenshots(); }
@@ -3419,12 +3315,11 @@ public partial class MainWindow : Window
         }
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
-        if (tag == "9") _ = DisplayFullNewsAsync();
-        if (tag == "10") UpdateStreamInfoDisplay(null);
+        if (tag == "10") _ = RefreshStreamStatusAsync();
     }
 
     // =====================================================================
-    //  ПОИСК ПО СБОРКАМ
+    //  ����� �� �������
     // =====================================================================
 
     private string _instanceFilter = "";
@@ -3437,7 +3332,7 @@ public partial class MainWindow : Window
         RefreshInstanceLists();
     }
 
-    /// <summary>Поле поиска появляется, когда сборок становится много.</summary>
+    /// <summary>���� ������ ����������, ����� ������ ���������� �����.</summary>
     private void UpdateSearchVisibility()
     {
         if (TxtInstanceSearch is null) return;
@@ -3458,7 +3353,7 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ФИЛЬТР КОНСОЛИ
+    //  ������ �������
     // =====================================================================
 
     private string _logFilter = "all";
@@ -3479,7 +3374,7 @@ public partial class MainWindow : Window
         if (_logFilter == "all")
         {
             TxtLog.Text = all;
-            TxtLogInfo.Text = "Журнал лаунчера и вывод игры";
+            TxtLogInfo.Text = "������ �������� � ����� ����";
             ScrollLog.ScrollToEnd();
             return;
         }
@@ -3489,9 +3384,9 @@ public partial class MainWindow : Window
 
         TxtLog.Text = filtered.Count > 0
             ? string.Join("\n", filtered)
-            : (_logFilter == "error" ? "Ошибок нет." : "Предупреждений нет.");
+            : (_logFilter == "error" ? "������ ���." : "�������������� ���.");
 
-        TxtLogInfo.Text = $"Показано {filtered.Count} из {lines.Length} строк";
+        TxtLogInfo.Text = $"�������� {filtered.Count} �� {lines.Length} �����";
         ScrollLog.ScrollToEnd();
     }
 
@@ -3500,35 +3395,35 @@ public partial class MainWindow : Window
         var lower = line.ToLowerInvariant();
 
         var isError = lower.Contains("[error]") || lower.Contains("error]") ||
-                      lower.Contains("exception") || lower.Contains("ошибка") ||
-                      lower.Contains("не удалось") || lower.Contains("severe") ||
+                      lower.Contains("exception") || lower.Contains("������") ||
+                      lower.Contains("�� �������") || lower.Contains("severe") ||
                       lower.Contains("fatal") || lower.Contains("!!!");
 
         if (level == "error") return isError;
 
-        // Для «предупреждений» показываем и ошибки — они важнее
+        // ��� ��������������� ���������� � ������ � ��� ������
         return isError || lower.Contains("[warn]") || lower.Contains("warn]") ||
-               lower.Contains("внимание") || lower.Contains("предупрежд");
+               lower.Contains("��������") || lower.Contains("����������");
     }
 
     // =====================================================================
-    //  ГОРЯЧИЕ КЛАВИШИ
+    //  ������� �������
     // =====================================================================
 
     // =====================================================================
-    //  ПРОКРУТКА КОЛЁСИКОМ
+    //  ��������� ��˨�����
     // =====================================================================
 
     /// <summary>
-    /// ComboBox и Slider «съедают» колесо мыши: наведёшь курсор на список версий
-    /// при прокрутке страницы — и вместо скролла меняется значение.
-    /// Здесь мы гасим такое поведение и передаём прокрутку родительскому ScrollViewer.
+    /// ComboBox � Slider �������� ������ ����: ������� ������ �� ������ ������
+    /// ��� ��������� �������� � � ������ ������� �������� ��������.
+    /// ����� �� ����� ����� ��������� � ������� ��������� ������������� ScrollViewer.
     /// </summary>
     private void BlockingControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not UIElement element) return;
 
-        // У раскрытого списка прокрутка своя — не мешаем
+        // � ���������� ������ ��������� ���� � �� ������
         if (sender is ComboBox { IsDropDownOpen: true }) return;
 
         e.Handled = true;
@@ -3551,8 +3446,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Вешает защиту от «кражи» колеса на все ComboBox и Slider окна.
-    /// Делается один раз после загрузки.
+    /// ������ ������ �� ������ ������ �� ��� ComboBox � Slider ����.
+    /// �������� ���� ��� ����� ��������.
     /// </summary>
     private void SetupWheelHandling(DependencyObject root)
     {
@@ -3569,12 +3464,12 @@ public partial class MainWindow : Window
                 el.PreviewMouseWheel += BlockingControl_PreviewMouseWheel;
             }
 
-            // Внутрь раскрывающихся списков не лезем
+            // ������ �������������� ������� �� �����
             if (child is not ComboBox) SetupWheelHandling(child);
         }
     }
 
-    /// <summary>Прокрутка списка сборок работает и когда курсор над карточкой.</summary>
+    /// <summary>��������� ������ ������ �������� � ����� ������ ��� ���������.</summary>
     private void ListScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not ScrollViewer sv) return;
@@ -3587,7 +3482,7 @@ public partial class MainWindow : Window
     {
         var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
 
-        // В полях ввода не перехватываем обычные клавиши
+        // � ����� ����� �� ������������� ������� �������
         var typing = Keyboard.FocusedElement is TextBox or ComboBox;
 
         switch (e.Key)
@@ -3620,7 +3515,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            // Ctrl+1..9 — переключение вкладок
+            // Ctrl+1..9 � ������������ �������
             case >= Key.D1 and <= Key.D9 when ctrl:
                 SwitchTab(e.Key - Key.D1);
                 e.Handled = true;
@@ -3636,7 +3531,7 @@ public partial class MainWindow : Window
         if (index >= 0 && index < navs.Length) navs[index].IsChecked = true;
     }
 
-    /// <summary>F5 — обновляет то, что открыто сейчас.</summary>
+    /// <summary>F5 � ��������� ��, ��� ������� ������.</summary>
     private void RefreshCurrentPage()
     {
         if (PageInstances.Visibility == Visibility.Visible)
@@ -3644,7 +3539,7 @@ public partial class MainWindow : Window
             RefreshInstanceLists();
             RefreshInstanceStats();
             LoadScreenshots();
-            AppendLog("Список сборок обновлён.");
+            AppendLog("������ ������ �������.");
         }
         else if (PageContent.Visibility == Visibility.Visible)
         {
@@ -3675,12 +3570,12 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  УВЕДОМЛЕНИЯ О ЗАВЕРШЕНИИ
+    //  ����������� � ����������
     // =====================================================================
 
     /// <summary>
-    /// Мигает в панели задач и подаёт звук, если окно свёрнуто —
-    /// чтобы не сидеть и не смотреть на прогресс-бар.
+    /// ������ � ������ ����� � ����� ����, ���� ���� ������� �
+    /// ����� �� ������ � �� �������� �� ��������-���.
     /// </summary>
     private void NotifyFinished(string title, string message, bool success = true)
     {
@@ -3698,7 +3593,7 @@ public partial class MainWindow : Window
             }
             catch { }
 
-            // Мигание значка в панели задач
+            // ������� ������ � ������ �����
             try
             {
                 var helper = new System.Windows.Interop.WindowInteropHelper(this);
@@ -3722,7 +3617,7 @@ public partial class MainWindow : Window
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
     // =====================================================================
-    //  ПРОГРЕСС И ЛОГ
+    //  �������� � ���
     // =====================================================================
 
     private void OnProgress(DownloadProgress p)
@@ -3739,8 +3634,8 @@ public partial class MainWindow : Window
             TxtProgressPercent.Text = $"{p.Percent:F1}%";
 
             var detail = p.FilesTotal > 1 ? $"  ({p.FilesDone}/{p.FilesTotal})" : "";
-            var size = p.BytesTotal > 0 ? $"  ·  {Human(p.BytesDone)} / {Human(p.BytesTotal)}" : "";
-            var file = string.IsNullOrEmpty(p.CurrentFile) ? "" : "  —  " + Shorten(p.CurrentFile, 44);
+            var size = p.BytesTotal > 0 ? $"  �  {Human(p.BytesDone)} / {Human(p.BytesTotal)}" : "";
+            var file = string.IsNullOrEmpty(p.CurrentFile) ? "" : "  �  " + Shorten(p.CurrentFile, 44);
 
             TxtProgressStage.Text = p.Stage + detail + size + file;
         });
@@ -3808,7 +3703,7 @@ public partial class MainWindow : Window
 
         Dispatcher.BeginInvoke(() =>
         {
-            // При активном фильтре перерисовываем только подходящие строки
+            // ��� �������� ������� �������������� ������ ���������� ������
             if (_logFilter != "all")
             {
                 if (MatchesLogLevel(line, _logFilter)) ApplyLogFilter();
@@ -3823,7 +3718,7 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  КОНТЕНТ СБОРКИ
+    //  ������� ������
     // =====================================================================
 
     private enum ContentKind { Mods, ResourcePacks, Shaders, Worlds }
@@ -3862,13 +3757,13 @@ public partial class MainWindow : Window
     {
         if (_selectedInstance is null)
         {
-            TxtContentStatus.Text = "Сборка не выбрана.";
+            TxtContentStatus.Text = "������ �� �������.";
             ItemsContent.ItemsSource = null;
             return;
         }
 
-        TxtContentSubtitle.Text = $"Сборка «{_selectedInstance.Name}» · " +
-                                  $"{_selectedInstance.McVersion} · {_selectedInstance.LoaderDisplay}";
+        TxtContentSubtitle.Text = $"������ �{_selectedInstance.Name}� � " +
+                                  $"{_selectedInstance.McVersion} � {_selectedInstance.LoaderDisplay}";
 
         var dir = CurrentContentDir();
         Directory.CreateDirectory(dir);
@@ -3887,7 +3782,7 @@ public partial class MainWindow : Window
                     items.Add(new
                     {
                         Name = d.Name,
-                        Info = $"{Human(size)} · изменён {d.LastWriteTime:dd.MM.yyyy HH:mm}",
+                        Info = $"{Human(size)} � ������� {d.LastWriteTime:dd.MM.yyyy HH:mm}",
                         Path = d.FullName,
                         ToggleText = "",
                         ToggleVisibility = Visibility.Collapsed,
@@ -3912,14 +3807,14 @@ public partial class MainWindow : Window
                     var enabled = !f.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                     var display = enabled
                         ? Path.GetFileNameWithoutExtension(f.Name)
-                        : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f.Name)) + "  (выключен)";
+                        : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f.Name)) + "  (��������)";
 
                     items.Add(new
                     {
                         Name = display,
-                        Info = $"{Human(f.Length)} · {f.LastWriteTime:dd.MM.yyyy}",
+                        Info = $"{Human(f.Length)} � {f.LastWriteTime:dd.MM.yyyy}",
                         Path = f.FullName,
-                        ToggleText = enabled ? "Выключить" : "Включить",
+                        ToggleText = enabled ? "���������" : "��������",
                         ToggleVisibility = Visibility.Visible,
                         Dot = new SolidColorBrush(enabled
                             ? ThemeService.CurrentAccent
@@ -3930,22 +3825,22 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Log.Warn("Чтение содержимого сборки: " + ex.Message);
+            Log.Warn("������ ����������� ������: " + ex.Message);
         }
 
         ItemsContent.ItemsSource = items;
 
         var kindName = _contentKind switch
         {
-            ContentKind.ResourcePacks => "ресурспаков",
-            ContentKind.Shaders => "шейдеров",
-            ContentKind.Worlds => "миров",
-            _ => "модов"
+            ContentKind.ResourcePacks => "�����������",
+            ContentKind.Shaders => "��������",
+            ContentKind.Worlds => "�����",
+            _ => "�����"
         };
 
         TxtContentStatus.Text = items.Count == 0
-            ? $"Нет {kindName}. Перетащите файлы сюда или нажмите «Импорт»."
-            : $"Всего {kindName}: {items.Count}";
+            ? $"��� {kindName}. ���������� ����� ���� ��� ������� �������."
+            : $"����� {kindName}: {items.Count}";
     }
 
     private void BtnRefreshContent_Click(object sender, RoutedEventArgs e) => RefreshContent();
@@ -3975,8 +3870,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось переключить: " + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� �����������: " + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -4000,10 +3895,10 @@ public partial class MainWindow : Window
         var isDir = Directory.Exists(path);
 
         var msg = isDir
-            ? $"Удалить мир «{name}»?\n\nЭто действие необратимо."
-            : $"Удалить «{name}»?";
+            ? $"������� ��� �{name}�?\n\n��� �������� ����������."
+            : $"������� �{name}�?";
 
-        if (MessageBox.Show(msg, "Удаление", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+        if (MessageBox.Show(msg, "��������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         try
@@ -4011,32 +3906,32 @@ public partial class MainWindow : Window
             if (isDir) Directory.Delete(path, true);
             else File.Delete(path);
 
-            AppendLog($"Удалено: {name}");
+            AppendLog($"�������: {name}");
             RefreshContent();
             RefreshInstanceStats();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось удалить: " + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� �������: " + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- Импорт ----------
+    // ---------- ������ ----------
 
     private void BtnImportMod_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var dlg = new OpenFileDialog
         {
-            Title = "Выберите моды, ресурспаки или шейдеры",
-            Filter = "Все поддерживаемые|*.jar;*.zip;*.mrpack|Моды (*.jar)|*.jar|Архивы (*.zip)|*.zip|Все файлы|*.*",
+            Title = "�������� ����, ���������� ��� �������",
+            Filter = "��� ��������������|*.jar;*.zip;*.mrpack|���� (*.jar)|*.jar|������ (*.zip)|*.zip|��� �����|*.*",
             Multiselect = true
         };
 
@@ -4062,7 +3957,7 @@ public partial class MainWindow : Window
                 if (Directory.Exists(src))
                 {
                     var worldDst = Path.Combine(InstanceService.SavesDir(inst), Path.GetFileName(src));
-                    if (Directory.Exists(worldDst)) { skipped.Add(Path.GetFileName(src) + " (уже есть)"); continue; }
+                    if (Directory.Exists(worldDst)) { skipped.Add(Path.GetFileName(src) + " (��� ����)"); continue; }
                     CopyDirectory(src, worldDst);
                     ok++;
                     continue;
@@ -4087,19 +3982,19 @@ public partial class MainWindow : Window
                 }
                 else if (ext == ".mrpack")
                 {
-                    // Модпак ставим целиком в текущую сборку
+                    // ������ ������ ������� � ������� ������
                     _ = InstallModpackAsync(inst, src);
                     ok++;
                     continue;
                 }
                 else
                 {
-                    skipped.Add(name + " (неизвестный тип)");
+                    skipped.Add(name + " (����������� ���)");
                     continue;
                 }
 
                 var dst = Path.Combine(dstDir, name);
-                if (File.Exists(dst)) { skipped.Add(name + " (уже есть)"); continue; }
+                if (File.Exists(dst)) { skipped.Add(name + " (��� ����)"); continue; }
 
                 File.Copy(src, dst);
                 ok++;
@@ -4110,15 +4005,15 @@ public partial class MainWindow : Window
             }
         }
 
-        var report = $"Добавлено: {ok}";
-        if (skipped.Count > 0) report += $"\nПропущено: {string.Join(", ", skipped)}";
-        if (failed.Count > 0) report += $"\nОшибки: {string.Join(", ", failed)}";
+        var report = $"���������: {ok}";
+        if (skipped.Count > 0) report += $"\n���������: {string.Join(", ", skipped)}";
+        if (failed.Count > 0) report += $"\n������: {string.Join(", ", failed)}";
 
-        AppendLog("Импорт: " + report.Replace("\n", "; "));
+        AppendLog("������: " + report.Replace("\n", "; "));
         RefreshContent();
         RefreshInstanceStats();
 
-        MessageBox.Show(report, "Импорт файлов", MessageBoxButton.OK,
+        MessageBox.Show(report, "������ ������", MessageBoxButton.OK,
             failed.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
@@ -4145,7 +4040,7 @@ public partial class MainWindow : Window
             CopyDirectory(dir, Path.Combine(dst, Path.GetFileName(dir)));
     }
 
-    // ---------- Перетаскивание ----------
+    // ---------- �������������� ----------
 
     private void Content_DragOver(object sender, DragEventArgs e)
     {
@@ -4155,7 +4050,7 @@ public partial class MainWindow : Window
         if (hasFiles && _selectedInstance is not null)
         {
             DropHint.Visibility = Visibility.Visible;
-            TxtDropTarget.Text = $"в сборку «{_selectedInstance.Name}»  ·  .jar → моды, .zip → ресурспаки или шейдеры";
+            TxtDropTarget.Text = $"� ������ �{_selectedInstance.Name}�  �  .jar > ����, .zip > ���������� ��� �������";
         }
 
         e.Handled = true;
@@ -4168,7 +4063,7 @@ public partial class MainWindow : Window
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -4177,20 +4072,20 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Импорт по ссылке Modrinth ----------
+    // ---------- ������ �� ������ Modrinth ----------
 
     private async void BtnImportUrl_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
+            MessageBox.Show("������� �������� ������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var dlg = new TextInputDialog(
-            "Импорт из Modrinth",
-            "Вставьте ссылку на мод или его slug:",
+            "������ �� Modrinth",
+            "�������� ������ �� ��� ��� ��� slug:",
             "https://modrinth.com/mod/sodium") { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
@@ -4201,20 +4096,20 @@ public partial class MainWindow : Window
         var slug = ExtractModrinthSlug(input);
         if (slug is null)
         {
-            MessageBox.Show("Не удалось распознать ссылку.\n\nПример: https://modrinth.com/mod/sodium",
-                "Неверная ссылка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("�� ������� ���������� ������.\n\n������: https://modrinth.com/mod/sodium",
+                "�������� ������", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        SetStage($"Ищу «{slug}» на Modrinth...");
+        SetStage($"��� �{slug}� �� Modrinth...");
 
         try
         {
             var project = await _mods.GetProjectAsync(ModProvider.Modrinth, slug);
             if (project is null)
             {
-                MessageBox.Show($"Проект «{slug}» не найден на Modrinth.",
-                    "Не найдено", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"������ �{slug}� �� ������ �� Modrinth.",
+                    "�� �������", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -4227,8 +4122,8 @@ public partial class MainWindow : Window
                 verDlg.SelectedFile, InstanceService.ModsDir(_selectedInstance),
                 _selectedInstance.McVersion, _selectedInstance.Loader, verDlg.InstallDependencies);
 
-            var msg = $"Установлено: {outcome.Installed.Count}";
-            if (outcome.Failed.Count > 0) msg += $"\nОшибки: {string.Join(", ", outcome.Failed)}";
+            var msg = $"�����������: {outcome.Installed.Count}";
+            if (outcome.Failed.Count > 0) msg += $"\n������: {string.Join(", ", outcome.Failed)}";
 
             MessageBox.Show(msg, project.Title, MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -4237,7 +4132,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка импорта", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "������ �������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { HideProgress(); }
     }
@@ -4258,7 +4153,7 @@ public partial class MainWindow : Window
         return System.Text.RegularExpressions.Regex.IsMatch(input, @"^[A-Za-z0-9._-]{2,64}$")
             ? input : null;
     }    // =====================================================================
-    //  БОТ (mineflayer)
+    //  ��� (mineflayer)
     // =====================================================================
 
     private readonly StringBuilder _botLog = new();
@@ -4282,12 +4177,12 @@ public partial class MainWindow : Window
 
     private string? _selectedBotId;
 
-    /// <summary>Отправляет команду выбранному боту или сразу всем.</summary>
+    /// <summary>���������� ������� ���������� ���� ��� ����� ����.</summary>
     private void SendBot(string command)
     {
         if (!_bots.AnyRunning)
         {
-            OnBotOutput("[!] сначала запустите бота");
+            OnBotOutput("[!] ������� ��������� ����");
             return;
         }
 
@@ -4309,9 +4204,9 @@ public partial class MainWindow : Window
 
         TxtBotStatus.Text = running switch
         {
-            0 => "нет ботов",
-            1 => "1 бот",
-            _ => $"{running} ботов"
+            0 => "��� �����",
+            1 => "1 ���",
+            _ => $"{running} �����"
         };
 
         BotDot.Fill = new SolidColorBrush(running > 0
@@ -4328,14 +4223,14 @@ public partial class MainWindow : Window
 
         var target = list.FirstOrDefault(b => b.Id == _selectedBotId);
         TxtBotTarget.Text = target is null
-            ? "УПРАВЛЕНИЕ"
-            : $"УПРАВЛЕНИЕ · {target.Name.ToUpperInvariant()}";
+            ? "����������"
+            : $"���������� � {target.Name.ToUpperInvariant()}";
 
         ItemsBots.ItemsSource = list.Select(b => new
         {
             b.Id,
             b.Name,
-            Info = $"{b.Endpoint}  ·  {(b.InWorld ? "в мире" : "подключается")}  ·  {b.UptimeDisplay}",
+            Info = $"{b.Endpoint}  �  {(b.InWorld ? "� ����" : "������������")}  �  {b.UptimeDisplay}",
             Dot = new SolidColorBrush(b.InWorld
                 ? ThemeService.CurrentAccent
                 : (Color)ColorConverter.ConvertFromString("#FACC15")),
@@ -4374,9 +4269,9 @@ public partial class MainWindow : Window
         var mf = BotService.IsMineflayerInstalled();
 
         TxtBotEnv.Text = node && mf
-            ? "Окружение готово: Node.js и mineflayer установлены."
-            : "При первом запуске лаунчер скачает Node.js и mineflayer (~40 МБ). " +
-              $"Node.js: {(node ? "есть" : "нет")}, mineflayer: {(mf ? "есть" : "нет")}.";
+            ? "��������� ������: Node.js � mineflayer �����������."
+            : "��� ������ ������� ������� ������� Node.js � mineflayer (~40 ��). " +
+              $"Node.js: {(node ? "����" : "���")}, mineflayer: {(mf ? "����" : "���")}.";
 
         if (string.IsNullOrWhiteSpace(TxtBotOwner.Text) && _account is not null)
             TxtBotOwner.Text = _account.Username;
@@ -4388,21 +4283,21 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(BotVersionText) && _selectedInstance is not null)
         {
-            // Подставляем версию сборки, а если она новее поддерживаемых — ближайшую рабочую
+            // ����������� ������ ������, � ���� ��� ����� �������������� � ��������� �������
             var v = _selectedInstance.McVersion;
             CbBotVersion.Text = BotService.IsVersionSupported(v)
                 ? v
                 : BotService.SuggestVersion(v) ?? "";
 
             if (!BotService.IsVersionSupported(v))
-                OnBotOutput($"[внимание] Minecraft {v} пока не поддерживается ботом, " +
-                            $"выбрана {CbBotVersion.Text}.");
+                OnBotOutput($"[��������] Minecraft {v} ���� �� �������������� �����, " +
+                            $"������� {CbBotVersion.Text}.");
         }
     }
 
     private string BotVersionText => (CbBotVersion.Text ?? "").Trim();
 
-    // ---------- Поиск открытого мира в локальной сети ----------
+    // ---------- ����� ��������� ���� � ��������� ���� ----------
 
     private readonly LanDiscoveryService _lan = new();
     private List<LanWorld> _lanWorlds = new();
@@ -4410,10 +4305,10 @@ public partial class MainWindow : Window
     private async void BtnFindLan_Click(object sender, RoutedEventArgs e)
     {
         BtnFindLan.IsEnabled = false;
-        BtnFindLan.Content = "Ищу…";
+        BtnFindLan.Content = "���";
 
         LanResults.Visibility = Visibility.Visible;
-        TxtLanStatus.Text = "Слушаю локальную сеть 6 секунд. Убедитесь, что мир открыт для сети.";
+        TxtLanStatus.Text = "������ ��������� ���� 6 ������. ���������, ��� ��� ������ ��� ����.";
         ItemsLan.ItemsSource = null;
 
         try
@@ -4423,14 +4318,14 @@ public partial class MainWindow : Window
             if (_lanWorlds.Count == 0)
             {
                 TxtLanStatus.Text =
-                    "Открытых миров не найдено.\n\n" +
-                    "Проверьте: игра запущена, в меню Esc нажата «Открыть для сети», " +
-                    "и лаунчер с игрой на одном компьютере или в одной сети.\n" +
-                    "Порт можно ввести вручную — он показан в игровом чате.";
+                    "�������� ����� �� �������.\n\n" +
+                    "���������: ���� ��������, � ���� Esc ������ �������� ��� ����, " +
+                    "� ������� � ����� �� ����� ���������� ��� � ����� ����.\n" +
+                    "���� ����� ������ ������� � �� ������� � ������� ����.";
                 return;
             }
 
-            TxtLanStatus.Text = $"Найдено миров: {_lanWorlds.Count}. Нажмите, чтобы подставить адрес.";
+            TxtLanStatus.Text = $"������� �����: {_lanWorlds.Count}. �������, ����� ���������� �����.";
 
             ItemsLan.ItemsSource = _lanWorlds.Select(w => new
             {
@@ -4439,17 +4334,17 @@ public partial class MainWindow : Window
                 Addr = $"{w.Address}:{w.Port}"
             }).ToList();
 
-            // Единственный мир подставляем сразу
+            // ������������ ��� ����������� �����
             if (_lanWorlds.Count == 1) ApplyLanWorld(_lanWorlds[0]);
         }
         catch (Exception ex)
         {
-            TxtLanStatus.Text = "Ошибка поиска: " + ex.Message;
+            TxtLanStatus.Text = "������ ������: " + ex.Message;
         }
         finally
         {
             BtnFindLan.IsEnabled = true;
-            BtnFindLan.Content = "Найти мой мир";
+            BtnFindLan.Content = "����� ��� ���";
         }
     }
 
@@ -4463,16 +4358,16 @@ public partial class MainWindow : Window
 
     private void ApplyLanWorld(LanWorld world)
     {
-        // Свой же компьютер надёжнее адресовать как localhost
+        // ���� �� ��������� ������� ���������� ��� localhost
         var isLocal = GetLocalIps().Contains(world.Address);
 
         TxtBotHost.Text = isLocal ? "localhost" : world.Address;
         TxtBotPort.Text = world.Port.ToString();
 
-        TxtLanStatus.Text = $"Выбран мир «{world.Motd}» — порт {world.Port}. " +
-                            "Теперь нажмите «Запустить бота».";
+        TxtLanStatus.Text = $"������ ��� �{world.Motd}� � ���� {world.Port}. " +
+                            "������ ������� ���������� ����.";
 
-        OnBotOutput($"[lan] найден мир «{world.Motd}» на {TxtBotHost.Text}:{world.Port}");
+        OnBotOutput($"[lan] ������ ��� �{world.Motd}� �� {TxtBotHost.Text}:{world.Port}");
     }
 
     private static HashSet<string> GetLocalIps()
@@ -4496,14 +4391,14 @@ public partial class MainWindow : Window
         BtnBotSetup.IsEnabled = false;
         try
         {
-            OnBotOutput("[setup] проверяю окружение...");
+            OnBotOutput("[setup] �������� ���������...");
             await _bots.EnsureEnvironmentAsync(OnProgress);
             RefreshBotEnvInfo();
         }
         catch (Exception ex)
         {
-            OnBotOutput("[setup] ошибка: " + ex.Message);
-            MessageBox.Show(ex.Message, "Установка окружения",
+            OnBotOutput("[setup] ������: " + ex.Message);
+            MessageBox.Show(ex.Message, "��������� ���������",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -4520,16 +4415,16 @@ public partial class MainWindow : Window
 
         if (!int.TryParse(TxtBotPort.Text.Trim(), out var port) || port is < 1 or > 65535)
         {
-            MessageBox.Show("Укажите корректный порт (1–65535).\n\n" +
-                            "Порт открытого мира виден в чате после «Открыть для сети».",
-                "Некорректный порт", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("������� ���������� ���� (1�65535).\n\n" +
+                            "���� ��������� ���� ����� � ���� ����� �������� ��� ����.",
+                "������������ ����", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var name = TxtBotName.Text.Trim();
         if (!OfflineAccountService.TryValidateName(name, out var err))
         {
-            MessageBox.Show(err, "Ник бота", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(err, "��� ����", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -4538,13 +4433,13 @@ public partial class MainWindow : Window
         try
         {
             await _bots.StartAsync(host, port, name, BotVersionText);
-            AppendLog($"Бот {name} подключается к {host}:{port}");
+            AppendLog($"��� {name} ������������ � {host}:{port}");
             RefreshBotList();
         }
         catch (Exception ex)
         {
             OnBotOutput("[error] " + ex.Message);
-            MessageBox.Show(ex.Message, "Не удалось запустить бота",
+            MessageBox.Show(ex.Message, "�� ������� ��������� ����",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             RefreshBotList();
         }
@@ -4558,8 +4453,8 @@ public partial class MainWindow : Window
     {
         if (BotOwner.Length == 0)
         {
-            MessageBox.Show("Укажите свой ник в игре — за кем боту следовать.",
-                "Нужен ник", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("������� ���� ��� � ���� � �� ��� ���� ���������.",
+                "����� ���", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         SendBot("follow " + BotOwner);
@@ -4592,13 +4487,13 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ОБСЛУЖИВАНИЕ
+    //  ������������
     // =====================================================================
 
     private List<MaintenanceService.TargetInfo> _maintTargets = new();
     private readonly HashSet<MaintenanceService.CleanTarget> _maintChecked = new();
 
-    // ---------- Портативный режим ----------
+    // ---------- ����������� ����� ----------
 
     private void RefreshPortableState()
     {
@@ -4606,21 +4501,21 @@ public partial class MainWindow : Window
 
         if (LauncherPaths.IsPortable)
         {
-            TxtPortableState.Text = $"Включён. Данные: {LauncherPaths.Root}";
+            TxtPortableState.Text = $"�������. ������: {LauncherPaths.Root}";
             TxtPortableState.Foreground = (Brush)FindResource("Accent");
-            BtnPortableToggle.Content = "Выключить портативный режим";
+            BtnPortableToggle.Content = "��������� ����������� �����";
         }
         else
         {
             var can = LauncherPaths.CanUsePortable();
 
             TxtPortableState.Text = can
-                ? $"Выключен. Данные: {LauncherPaths.Root}"
-                : "Недоступен: нет прав на запись рядом с лаунчером. " +
-                  "Перенесите exe в обычную папку или на флешку.";
+                ? $"��������. ������: {LauncherPaths.Root}"
+                : "����������: ��� ���� �� ������ ����� � ���������. " +
+                  "���������� exe � ������� ����� ��� �� ������.";
 
             TxtPortableState.Foreground = (Brush)FindResource(can ? "FgMuted" : "Danger");
-            BtnPortableToggle.Content = "Включить портативный режим";
+            BtnPortableToggle.Content = "�������� ����������� �����";
             BtnPortableToggle.IsEnabled = can;
         }
     }
@@ -4631,20 +4526,20 @@ public partial class MainWindow : Window
 
         if (_sessions.AnyRunning || _bots.AnyRunning)
         {
-            MessageBox.Show("Сначала остановите игру и ботов.", "Занято",
+            MessageBox.Show("������� ���������� ���� � �����.", "������",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var question = turnOn
-            ? "Включить портативный режим?\n\n" +
-              $"Данные переедут в:\n{Path.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
-              "Скопировать туда текущие сборки и настройки?"
-            : "Выключить портативный режим?\n\n" +
-              "Данные вернутся в папку пользователя (%APPDATA%).\n\n" +
-              "Скопировать туда текущие сборки и настройки?";
+            ? "�������� ����������� �����?\n\n" +
+              $"������ �������� �:\n{Path.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
+              "����������� ���� ������� ������ � ���������?"
+            : "��������� ����������� �����?\n\n" +
+              "������ �������� � ����� ������������ (%APPDATA%).\n\n" +
+              "����������� ���� ������� ������ � ���������?";
 
-        var r = MessageBox.Show(question, "Портативный режим",
+        var r = MessageBox.Show(question, "����������� �����",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
         if (r == MessageBoxResult.Cancel) return;
@@ -4655,17 +4550,17 @@ public partial class MainWindow : Window
             {
                 var copied = 0;
                 LauncherPaths.MigrateTo(turnOn, _ => copied++);
-                AppendLog($"Портативный режим: скопировано файлов {copied}.");
+                AppendLog($"����������� �����: ����������� ������ {copied}.");
             }
 
             LauncherPaths.SetPortable(turnOn);
 
             MessageBox.Show(
-                "Готово. Изменения вступят в силу после перезапуска лаунчера.\n\n" +
-                "Закрыть его сейчас?",
-                "Портативный режим", MessageBoxButton.OK, MessageBoxImage.Information);
+                "������. ��������� ������� � ���� ����� ����������� ��������.\n\n" +
+                "������� ��� ������?",
+                "����������� �����", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            var restart = MessageBox.Show("Закрыть лаунчер?", "Перезапуск",
+            var restart = MessageBox.Show("������� �������?", "����������",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (restart == MessageBoxResult.Yes) Application.Current.Shutdown();
@@ -4673,20 +4568,20 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось переключить режим: " + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� ����������� �����: " + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private void BtnScanMaint_Click(object sender, RoutedEventArgs e) => ScanMaintenance();
 
     private void ScanMaintenance()
     {
-        TxtMaintTotal.Text = "Считаю…";
+        TxtMaintTotal.Text = "�������";
 
         _maintTargets = MaintenanceService.Enumerate();
         var total = MaintenanceService.TotalSize();
 
-        TxtMaintTotal.Text = $"Всего данных лаунчера: {Human(total)}  ·  {LauncherPaths.Root}";
+        TxtMaintTotal.Text = $"����� ������ ��������: {Human(total)}  �  {LauncherPaths.Root}";
 
         RebuildMaintList();
     }
@@ -4737,14 +4632,14 @@ public partial class MainWindow : Window
     {
         if (_maintChecked.Count == 0)
         {
-            MessageBox.Show("Отметьте, что нужно удалить.", "Ничего не выбрано",
+            MessageBox.Show("��������, ��� ����� �������.", "������ �� �������",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("Сначала остановите игру.", "Игра запущена",
+            MessageBox.Show("������� ���������� ����.", "���� ��������",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -4753,20 +4648,20 @@ public partial class MainWindow : Window
         var dangerous = selected.Where(t => t.Dangerous).ToList();
         var totalSize = selected.Sum(t => t.Size);
 
-        var msg = "Будет удалено:\n\n" +
-                  string.Join("\n", selected.Select(t => $"  • {t.Title} — {t.SizeDisplay}")) +
-                  $"\n\nОсвободится примерно {Human(totalSize)}.";
+        var msg = "����� �������:\n\n" +
+                  string.Join("\n", selected.Select(t => $"  � {t.Title} � {t.SizeDisplay}")) +
+                  $"\n\n����������� �������� {Human(totalSize)}.";
 
         if (dangerous.Count > 0)
-            msg += "\n\nВНИМАНИЕ: среди выбранного есть сборки с модами и мирами. " +
-                   "Восстановить их будет невозможно.";
+            msg += "\n\n��������: ����� ���������� ���� ������ � ������ � ������. " +
+                   "������������ �� ����� ����������.";
 
-        if (MessageBox.Show(msg + "\n\nПродолжить?", "Подтверждение очистки",
+        if (MessageBox.Show(msg + "\n\n����������?", "������������� �������",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         var freed = MaintenanceService.Clean(selected);
 
-        // Что-то из удалённого могло быть загружено в память
+        // ���-�� �� ��������� ����� ���� ��������� � ������
         if (_maintChecked.Contains(MaintenanceService.CleanTarget.Instances))
         {
             _instances.Clear();
@@ -4779,24 +4674,24 @@ public partial class MainWindow : Window
         _maintChecked.Clear();
         ScanMaintenance();
 
-        MessageBox.Show($"Готово. Освобождено {Human(freed)}.", "Очистка завершена",
+        MessageBox.Show($"������. ����������� {Human(freed)}.", "������� ���������",
             MessageBoxButton.OK, MessageBoxImage.Information);
 
-        AppendLog($"Очистка: освобождено {Human(freed)}");
+        AppendLog($"�������: ����������� {Human(freed)}");
     }
 
     private void BtnReinstallSoft_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "Будут удалены версии игры, библиотеки, ресурсы, Java и кэш.\n\n" +
-                "Сборки (моды, миры, скриншоты), аккаунт и настройки сохранятся.\n" +
-                "Файлы игры скачаются заново при следующем запуске.\n\nПродолжить?",
-                "Переустановка начисто", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+                "����� ������� ������ ����, ����������, �������, Java � ���.\n\n" +
+                "������ (����, ����, ���������), ������� � ��������� ����������.\n" +
+                "����� ���� ��������� ������ ��� ��������� �������.\n\n����������?",
+                "������������� �������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("Сначала остановите игру.", "Игра запущена",
+            MessageBox.Show("������� ���������� ����.", "���� ��������",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -4814,23 +4709,23 @@ public partial class MainWindow : Window
         ImageCacheService.ClearMemory();
         ScanMaintenance();
 
-        MessageBox.Show($"Готово. Освобождено {Human(freed)}.\n\n" +
-                        "Файлы игры загрузятся заново при нажатии «ИГРАТЬ».",
-            "Переустановка", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"������. ����������� {Human(freed)}.\n\n" +
+                        "����� ���� ���������� ������ ��� ������� ������ܻ.",
+            "�������������", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void BtnReinstallFull_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "Будут удалены ВСЕ данные лаунчера:\n\n" +
-                "  • версии игры, библиотеки, ресурсы\n" +
-                "  • сборки со всеми модами и мирами\n" +
-                "  • аккаунт и настройки\n\n" +
-                "Сам файл лаунчера останется. Восстановить данные будет нельзя.\n\nПродолжить?",
-                "Полная переустановка", MessageBoxButton.YesNo, MessageBoxImage.Stop)
+                "����� ������� ��� ������ ��������:\n\n" +
+                "  � ������ ����, ����������, �������\n" +
+                "  � ������ �� ����� ������ � ������\n" +
+                "  � ������� � ���������\n\n" +
+                "��� ���� �������� ���������. ������������ ������ ����� ������.\n\n����������?",
+                "������ �������������", MessageBoxButton.YesNo, MessageBoxImage.Stop)
             != MessageBoxResult.Yes) return;
 
-        if (MessageBox.Show("Точно удалить все миры и моды?", "Последнее подтверждение",
+        if (MessageBox.Show("����� ������� ��� ���� � ����?", "��������� �������������",
                 MessageBoxButton.YesNo, MessageBoxImage.Stop) != MessageBoxResult.Yes) return;
 
         if (_sessions.AnyRunning) _sessions.StopAllAsync().GetAwaiter().GetResult();
@@ -4838,9 +4733,9 @@ public partial class MainWindow : Window
 
         var freed = MaintenanceService.Clean(MaintenanceService.Enumerate());
 
-        MessageBox.Show($"Удалено {Human(freed)}.\n\nЛаунчер сейчас закроется. " +
-                        "Запустите его заново — он будет как после установки.",
-            "Готово", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"������� {Human(freed)}.\n\n������� ������ ���������. " +
+                        "��������� ��� ������ � �� ����� ��� ����� ���������.",
+            "������", MessageBoxButton.OK, MessageBoxImage.Information);
 
         Application.Current.Shutdown();
     }
@@ -4851,12 +4746,12 @@ public partial class MainWindow : Window
         var isExe = exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
         var r = MessageBox.Show(
-            "Полностью удалить MaysLauncher с компьютера?\n\n" +
-            $"Будет удалена папка данных:\n{LauncherPaths.Root}\n\n" +
-            (isExe ? "«Да» — удалить и сам файл лаунчера.\n«Нет» — удалить только данные.\n"
-                   : "Файл лаунчера удалить нельзя (запущен не как exe).\n") +
-            "\nЭто действие необратимо.",
-            "Удаление лаунчера", MessageBoxButton.YesNoCancel, MessageBoxImage.Stop);
+            "��������� ������� MaysLauncher � ����������?\n\n" +
+            $"����� ������� ����� ������:\n{LauncherPaths.Root}\n\n" +
+            (isExe ? "��� � ������� � ��� ���� ��������.\n���� � ������� ������ ������.\n"
+                   : "���� �������� ������� ������ (������� �� ��� exe).\n") +
+            "\n��� �������� ����������.",
+            "�������� ��������", MessageBoxButton.YesNoCancel, MessageBoxImage.Stop);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -4864,9 +4759,9 @@ public partial class MainWindow : Window
 
         if (MessageBox.Show(
                 removeExe
-                    ? "Лаунчер удалит все данные и себя, затем закроется. Подтвердить?"
-                    : "Лаунчер удалит все данные и закроется. Подтвердить?",
-                "Последнее подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Stop)
+                    ? "������� ������ ��� ������ � ����, ����� ���������. �����������?"
+                    : "������� ������ ��� ������ � ���������. �����������?",
+                "��������� �������������", MessageBoxButton.YesNo, MessageBoxImage.Stop)
             != MessageBoxResult.Yes) return;
 
         try
@@ -4881,13 +4776,13 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось запустить удаление: " + ex.Message,
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("�� ������� ��������� ��������: " + ex.Message,
+                "������", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private static string Human(long bytes)
     {
-        string[] units = { "Б", "КБ", "МБ", "ГБ" };
+        string[] units = { "�", "��", "��", "��" };
         double v = bytes;
         var i = 0;
         while (v >= 1024 && i < units.Length - 1) { v /= 1024; i++; }
@@ -4895,5 +4790,5 @@ public partial class MainWindow : Window
     }
 
     private static string Shorten(string s, int max) =>
-        s.Length <= max ? s : "…" + s[^(max - 1)..];
+        s.Length <= max ? s : "�" + s[^(max - 1)..];
 }

@@ -8,7 +8,7 @@ namespace MCLauncher.Services;
 
 public static class TwitchStorage
 {
-    private static string DataFile => Path.Combine(LauncherPaths.Root, "twitch.dat");
+    private static string DataFile => Path.Combine(LauncherPaths.Root, "twitch_session.json");
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("Mays.Twitch.v1");
 
     public static TwitchAccount? Load()
