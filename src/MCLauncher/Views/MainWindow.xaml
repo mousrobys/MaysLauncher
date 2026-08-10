@@ -253,7 +253,52 @@
                                     </Border>
                                 </Grid>
                             </Grid>
-                        </Border><!-- Быстрые действия -->
+                        </Border>
+
+                        <!-- Статистика -->
+                        <Border Grid.Row="2" Margin="0,14,0,0" CornerRadius="12" Background="{DynamicResource Panel}"
+                                BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               Foreground="{DynamicResource Accent}"/>
+                                    <TextBlock x:Name="StatTotalTime" Text="0 ч" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                                    <TextBlock Text="Время в игре" FontSize="11" Foreground="{DynamicResource FgMuted}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               Foreground="{DynamicResource Accent}"/>
+                                    <TextBlock x:Name="StatLaunches" Text="0" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                                    <TextBlock Text="Запусков" FontSize="11" Foreground="{DynamicResource FgMuted}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                               Foreground="{DynamicResource Accent}"/>
+                                    <TextBlock x:Name="StatLastInstance" Text="—" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="StatLastTime" Text="Не играли" FontSize="11" Foreground="{DynamicResource FgMuted}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="3">
+                                    <TextBlock Text="RAM" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/>
+                                    <Grid Height="40" Margin="0,4,0,0">
+                                        <Canvas x:Name="RamChart" Background="Transparent"/>
+                                    </Grid>
+                                    <TextBlock x:Name="RamLabel" Text="— МБ" FontSize="11" Foreground="{DynamicResource FgMuted}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Быстрые действия -->
                         <Grid Grid.Row="3" Margin="0,14,0,0" VerticalAlignment="Top">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>

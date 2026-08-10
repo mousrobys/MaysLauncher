@@ -6,10 +6,12 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using MCLauncher.Models;
 using MCLauncher.Services;
 using Microsoft.Win32;
+using IOPath = System.IO.Path;
 
 namespace MCLauncher.Views;
 
@@ -27,6 +29,9 @@ public partial class MainWindow : Window
     private readonly ModpackService _modpacks;
     private readonly BotManager _bots;
     private readonly GameSessionManager _sessions = new();
+    private readonly GameStatistics _stats;
+    private readonly FavoriteInstances _favorites;
+    private readonly RamMonitor _ramMonitor;
 
     private LauncherSettings _settings = new();
     private MinecraftAccount? _account;
@@ -57,6 +62,13 @@ public partial class MainWindow : Window
         _mods = new ModService(http);
         _modpacks = new ModpackService(http);
         _bots = new BotManager(http);
+        _stats = GameStatistics.Load();
+        _favorites = new FavoriteInstances();
+        _favorites.Load();
+        _ramMonitor = new RamMonitor();
+        _ramMonitor.OnUpdate += RamMonitor_OnUpdate;
+
+        ToastNotification.Initialize(this);
 
         _downloads.Progress += OnProgress;
         _java.Progress += OnProgress;
@@ -148,7 +160,59 @@ public partial class MainWindow : Window
             System.Windows.Threading.DispatcherPriority.Loaded);
 
         _ = RefreshServersAsync();
-    }    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+        _ramMonitor.Start();
+        UpdateStatisticsDisplay();
+    }
+
+    private void UpdateStatisticsDisplay()
+    {
+        StatTotalTime.Text = _stats.GetFormattedTotalTime();
+        StatLaunches.Text = _stats.TotalLaunches.ToString();
+        StatLastInstance.Text = _stats.LastInstanceName ?? "—";
+        StatLastTime.Text = _stats.TotalLaunches > 0 ? _stats.GetFormattedLastPlayed() : "Не играли";
+    }
+
+    private void RamMonitor_OnUpdate((DateTime Time, double UsedMb) point)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            RamLabel.Text = $"{(int)point.UsedMb} МБ";
+            DrawRamChart();
+        });
+    }
+
+    private void DrawRamChart()
+    {
+        var history = _ramMonitor.GetHistory();
+        var canvas = RamChart;
+        canvas.Children.Clear();
+
+        if (history.Count < 2) return;
+
+        double width = canvas.ActualWidth > 0 ? canvas.ActualWidth : 200;
+        double height = canvas.ActualHeight > 0 ? canvas.ActualHeight : 40;
+        double maxVal = RamMonitor.GetTotalRamMb();
+
+        var points = new PointCollection();
+        for (int i = 0; i < history.Count; i++)
+        {
+            double x = (double)i / (history.Count - 1) * width;
+            double y = height - (history[i].UsedMb / maxVal * height);
+            points.Add(new System.Windows.Point(x, y));
+        }
+
+        var line = new Polyline
+        {
+            Points = points,
+            Stroke = (Brush)FindResource("Accent"),
+            StrokeThickness = 2,
+            Fill = null
+        };
+
+        canvas.Children.Add(line);
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_sessions.AnyRunning)
         {
@@ -319,7 +383,7 @@ public partial class MainWindow : Window
         TxtWindowBg.Text = dlg.FileName;
         ApplyWindowBackground();
         SettingsService.Save(_settings);
-        AppendLog("Установлен фон лаунчера: " + Path.GetFileName(dlg.FileName));
+        AppendLog("Установлен фон лаунчера: " + System.IO.Path.GetFileName(dlg.FileName));
     }
 
     private void BtnClearWindowBg_Click(object sender, RoutedEventArgs e)
@@ -1142,8 +1206,8 @@ public partial class MainWindow : Window
         try
         {
             // Копируем в папку сборки, чтобы иконка не потерялась при переносе
-            var dst = Path.Combine(InstanceService.InstanceDir(_selectedInstance),
-                "icon" + Path.GetExtension(dlg.FileName));
+            var dst = IOPath.Combine(InstanceService.InstanceDir(_selectedInstance),
+                "icon" + IOPath.GetExtension(dlg.FileName));
 
             File.Copy(dlg.FileName, dst, true);
 
@@ -1272,9 +1336,9 @@ public partial class MainWindow : Window
             {
                 foreach (var sub in new[] { "mods", "resourcepacks", "shaderpacks", "config" })
                 {
-                    var from = Path.Combine(InstanceService.InstanceDir(src), sub);
+                    var from = IOPath.Combine(InstanceService.InstanceDir(src), sub);
                     if (Directory.Exists(from))
-                        CopyDirectory(from, Path.Combine(InstanceService.InstanceDir(copy), sub));
+                        CopyDirectory(from, IOPath.Combine(InstanceService.InstanceDir(copy), sub));
                 }
             }
             catch (Exception ex)
@@ -1760,7 +1824,7 @@ public partial class MainWindow : Window
             _downloads.Paths = paths;
             _loaders.Paths = paths;
             _loaders.InstallRoot = paths.IsIsolated
-                ? Path.Combine(InstanceService.InstanceDir(inst), ".minecraft")
+                ? IOPath.Combine(InstanceService.InstanceDir(inst), ".minecraft")
                 : LauncherPaths.Root;
 
             if (paths.IsIsolated) AppendLog($"Сборка «{inst.Name}» изолирована: файлы в её папке.");
@@ -3082,16 +3146,7 @@ public partial class MainWindow : Window
 
         var tag = (sender as FrameworkElement)?.Tag?.ToString() ?? "0";
 
-        PageHome.Visibility = tag == "0" ? Visibility.Visible : Visibility.Collapsed;
-        PageInstances.Visibility = tag == "1" ? Visibility.Visible : Visibility.Collapsed;
-        PageServers.Visibility = tag == "2" ? Visibility.Visible : Visibility.Collapsed;
-        PageAccount.Visibility = tag == "3" ? Visibility.Visible : Visibility.Collapsed;
-        PageSettings.Visibility = tag == "4" ? Visibility.Visible : Visibility.Collapsed;
-        PageConsole.Visibility = tag == "5" ? Visibility.Visible : Visibility.Collapsed;
-        PageMods.Visibility = tag == "6" ? Visibility.Visible : Visibility.Collapsed;
-
-        PageContent.Visibility = tag == "7" ? Visibility.Visible : Visibility.Collapsed;
-        PageBot.Visibility = tag == "8" ? Visibility.Visible : Visibility.Collapsed;
+        AnimatePageTransition(tag);
 
         if (tag == "1") { RefreshInstanceStats(); LoadScreenshots(); }
         if (tag == "6")
@@ -3101,6 +3156,36 @@ public partial class MainWindow : Window
         }
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
+    }
+
+    private void AnimatePageTransition(string tag)
+    {
+        var pages = new Dictionary<string, Grid>
+        {
+            ["0"] = PageHome, ["1"] = PageInstances, ["2"] = PageServers,
+            ["3"] = PageAccount, ["4"] = PageSettings, ["5"] = PageConsole,
+            ["6"] = PageMods, ["7"] = PageContent, ["8"] = PageBot
+        };
+
+        foreach (var kvp in pages)
+        {
+            if (kvp.Key == tag)
+            {
+                kvp.Value.Visibility = Visibility.Visible;
+                var fadeIn = new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
+                var slideIn = new System.Windows.Media.Animation.DoubleAnimation(20, 0, TimeSpan.FromMilliseconds(200));
+                kvp.Value.BeginAnimation(OpacityProperty, fadeIn);
+                var transform = new System.Windows.Media.TranslateTransform();
+                kvp.Value.RenderTransform = transform;
+                transform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slideIn);
+            }
+            else if (kvp.Value.Visibility == Visibility.Visible)
+            {
+                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(100));
+                fadeOut.Completed += (_, _) => kvp.Value.Visibility = Visibility.Collapsed;
+                kvp.Value.BeginAnimation(OpacityProperty, fadeOut);
+            }
+        }
     }
 
     // =====================================================================
@@ -3591,8 +3676,8 @@ public partial class MainWindow : Window
                 {
                     var enabled = !f.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                     var display = enabled
-                        ? Path.GetFileNameWithoutExtension(f.Name)
-                        : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f.Name)) + "  (выключен)";
+                        ? IOPath.GetFileNameWithoutExtension(f.Name)
+                        : IOPath.GetFileNameWithoutExtension(IOPath.GetFileNameWithoutExtension(f.Name)) + "  (выключен)";
 
                     items.Add(new
                     {
@@ -3676,7 +3761,7 @@ public partial class MainWindow : Window
     {
         if (sender is not FrameworkElement fe || fe.Tag is not string path) return;
 
-        var name = Path.GetFileName(path);
+        var name = IOPath.GetFileName(path);
         var isDir = Directory.Exists(path);
 
         var msg = isDir
@@ -3741,8 +3826,8 @@ public partial class MainWindow : Window
             {
                 if (Directory.Exists(src))
                 {
-                    var worldDst = Path.Combine(InstanceService.SavesDir(inst), Path.GetFileName(src));
-                    if (Directory.Exists(worldDst)) { skipped.Add(Path.GetFileName(src) + " (уже есть)"); continue; }
+                    var worldDst = IOPath.Combine(InstanceService.SavesDir(inst), IOPath.GetFileName(src));
+                    if (Directory.Exists(worldDst)) { skipped.Add(IOPath.GetFileName(src) + " (уже есть)"); continue; }
                     CopyDirectory(src, worldDst);
                     ok++;
                     continue;
@@ -3750,8 +3835,8 @@ public partial class MainWindow : Window
 
                 if (!File.Exists(src)) continue;
 
-                var ext = Path.GetExtension(src).ToLowerInvariant();
-                var name = Path.GetFileName(src);
+                var ext = IOPath.GetExtension(src).ToLowerInvariant();
+                var name = IOPath.GetFileName(src);
 
                 string dstDir;
 
@@ -3778,7 +3863,7 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                var dst = Path.Combine(dstDir, name);
+                var dst = IOPath.Combine(dstDir, name);
                 if (File.Exists(dst)) { skipped.Add(name + " (уже есть)"); continue; }
 
                 File.Copy(src, dst);
@@ -3786,7 +3871,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                failed.Add(Path.GetFileName(src) + ": " + ex.Message);
+                failed.Add(IOPath.GetFileName(src) + ": " + ex.Message);
             }
         }
 
@@ -3819,10 +3904,10 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(dst);
 
         foreach (var file in Directory.GetFiles(src))
-            File.Copy(file, Path.Combine(dst, Path.GetFileName(file)), true);
+            File.Copy(file, IOPath.Combine(dst, IOPath.GetFileName(file)), true);
 
         foreach (var dir in Directory.GetDirectories(src))
-            CopyDirectory(dir, Path.Combine(dst, Path.GetFileName(dir)));
+            CopyDirectory(dir, IOPath.Combine(dst, IOPath.GetFileName(dir)));
     }
 
     // ---------- Перетаскивание ----------
@@ -4318,7 +4403,7 @@ public partial class MainWindow : Window
 
         var question = turnOn
             ? "Включить портативный режим?\n\n" +
-              $"Данные переедут в:\n{Path.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
+              $"Данные переедут в:\n{IOPath.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
               "Скопировать туда текущие сборки и настройки?"
             : "Выключить портативный режим?\n\n" +
               "Данные вернутся в папку пользователя (%APPDATA%).\n\n" +
