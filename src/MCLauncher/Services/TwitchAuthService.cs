@@ -47,9 +47,13 @@ public sealed class TwitchAuthService : IDisposable
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
             cts.Token.Register(() => _tcs.TrySetResult(""));
-            var token = await _tcs.Task.ConfigureAwait(false);
+            var code = await _tcs.Task.ConfigureAwait(false);
 
+            if (string.IsNullOrEmpty(code)) return null;
+
+            var token = await ExchangeCodeForTokenAsync(code).ConfigureAwait(false);
             if (string.IsNullOrEmpty(token)) return null;
+
             return await FetchUserProfileAsync(token).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -80,40 +84,36 @@ public sealed class TwitchAuthService : IDisposable
                     var req = ctx.Request;
                     var url = req.Url!;
 
-                    string? token = null;
+                    string? code = null;
 
-                    if (url.Query.Contains("token="))
+                    if (url.Query.Contains("code="))
                     {
                         var query = url.Query.TrimStart('?');
                         foreach (var pair in query.Split('&'))
                         {
                             var kv = pair.Split('=');
-                            if (kv.Length == 2 && kv[0] == "token")
+                            if (kv.Length == 2 && kv[0] == "code")
                             {
-                                token = Uri.UnescapeDataString(kv[1]);
+                                code = Uri.UnescapeDataString(kv[1]);
                                 break;
                             }
                         }
                     }
 
                     string html;
-                    if (token != null)
+                    if (code != null)
                     {
-                        html = "<html><head><meta charset='utf-8'></head><body style='font-family:Segoe UI;background:#0e0e10;color:#fff;text-align:center;padding-top:100px'>" +
+                        html = "<html><head><meta charset='utf-8'></head>" +
+                               "<body style='font-family:Segoe UI;background:#0e0e10;color:#fff;text-align:center;padding-top:100px'>" +
                                "<h1 style='color:#9146FF'>Авторизация успешна!</h1>" +
-                               "<p>Можно закрыть эту окно и вернуться в лаунчер.</p>" +
-                               "<script>setTimeout(()=>window.close(),3000)</script></body></html>";
-                        _tcs?.TrySetResult(token);
+                               "<p>Можно закрыть это окно.</p>" +
+                               "<script>setTimeout(()=>window.close(),2000)</script></body></html>";
+                        _tcs?.TrySetResult(code);
                     }
                     else
                     {
-                        html = "<html><body><script>" +
-                               "var h=location.hash.substring(1);" +
-                               "if(h&&h.includes('access_token=')){" +
-                               "var p=new URLSearchParams(h);" +
-                               "var t=p.get('access_token');" +
-                               "if(t)location.href='/?token='+encodeURIComponent(t);}" +
-                               "</script></body></html>";
+                        html = "<html><body><p style='font-family:Segoe UI;text-align:center;padding-top:50px'>" +
+                               "Ожидание кода авторизации...</p></body></html>";
                     }
 
                     var buf = Encoding.UTF8.GetBytes(html);
@@ -139,16 +139,52 @@ public sealed class TwitchAuthService : IDisposable
     private static void OpenTwitchAuthPage()
     {
         const string clientId = "1w4str5herfmk8s6ugx6qbh12y95yi";
-        var url = $"https://id.twitch.tv/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString("http://localhost:8080/")}&response_type=token&scope={Uri.EscapeDataString("user:read:email")}";
+        var scope = Uri.EscapeDataString("user:read:email");
+        var redirect = Uri.EscapeDataString("http://localhost:8080/");
+        var url = $"https://id.twitch.tv/oauth2/authorize?client_id={clientId}&redirect_uri={redirect}&response_type=code&scope={scope}";
 
         try
         {
             Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-            Log.Info($"Opened Twitch auth page");
+            Log.Info("Opened Twitch auth page (Authorization Code Flow)");
         }
         catch (Exception ex)
         {
             Log.Warn($"Failed to open browser: {ex.Message}");
+        }
+    }
+
+    private static async Task<string?> ExchangeCodeForTokenAsync(string code)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.Add("User-Agent", "MaysLauncher/1.0");
+
+            var body = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", ClientId),
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                new KeyValuePair<string, string>("redirect_uri", "http://localhost:8080/")
+            });
+
+            var resp = await http.PostAsync("https://id.twitch.tv/oauth2/token", body).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Log.Warn($"Token exchange failed: {resp.StatusCode} - {err}");
+                return null;
+            }
+
+            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var doc = JsonDocument.Parse(json);
+            return doc.RootElement.GetProperty("access_token").GetString();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Token exchange error: {ex.Message}");
+            return null;
         }
     }
 
