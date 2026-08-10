@@ -28,6 +28,12 @@ public partial class MainWindow : Window
     private readonly BotManager _bots;
     private readonly GameSessionManager _sessions = new();
     private readonly NewsService _newsService;
+    private readonly TwitchAuthService _twitchAuth;
+    private readonly TwitchStreamService _twitchStream;
+
+    private TwitchAccount? _twitchAccount;
+    private TwitchStreamInfo? _currentStreamInfo;
+    private DispatcherTimer? _streamCheckTimer;
 
     private LauncherSettings _settings = new();
     private MinecraftAccount? _account;
@@ -59,6 +65,9 @@ public partial class MainWindow : Window
         _modpacks = new ModpackService(http);
         _bots = new BotManager(http);
         _newsService = new NewsService(http);
+        _twitchAuth = new TwitchAuthService();
+        _twitchStream = new TwitchStreamService(http);
+        _twitchStream.StreamStatusChanged += OnTwitchStreamChanged;
 
         _downloads.Progress += OnProgress;
         _java.Progress += OnProgress;
@@ -151,6 +160,61 @@ public partial class MainWindow : Window
 
         _ = RefreshServersAsync();
         _ = LoadNewsAsync();
+        InitializeTwitch();
+    }
+
+    private void InitializeTwitch()
+    {
+        if (_settings.HideStreams)
+        {
+            NavStreams.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _twitchAccount = TwitchStorage.Load();
+        if (_twitchAccount != null)
+        {
+            _twitchStream.StartMonitoring(_twitchAccount);
+            UpdateTwitchUI();
+        }
+    }
+
+    private void OnTwitchStreamChanged(TwitchStreamInfo? info)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _currentStreamInfo = info;
+            UpdateStreamInfoDisplay(info);
+
+            if (info?.IsLive == true)
+            {
+                ShowStreamNotification(info);
+            }
+        });
+    }
+
+    private void ShowStreamNotification(TwitchStreamInfo info)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("powershell",
+                $"-Command \"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
+                "$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastToastTemplateType]::ToastText02); " +
+                "$text = $template.GetElementsByTagName('text'); " +
+                "$text[0].AppendChild($template.CreateTextNode('moysecamm_tw начинает стрим!')) | Out-Null; " +
+                "$text[1].AppendChild($template.CreateTextNode('{info.Title}')) | Out-Null; " +
+                "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); " +
+                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('MaysLauncher').Show($toast)\"")
+            {
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Toast notification failed: " + ex.Message);
+        }
     }
 
     private async Task LoadNewsAsync()
@@ -313,6 +377,7 @@ public partial class MainWindow : Window
         ChkSnapshots.IsChecked = _settings.ShowSnapshots;
         ChkCloseOnLaunch.IsChecked = _settings.CloseLauncherOnStart;
         ChkShowConsole.IsChecked = _settings.ShowConsole;
+        ChkHideStreams.IsChecked = _settings.HideStreams;
         ChkAllowMultiple.IsChecked = _settings.AllowMultipleInstances;
         ChkMinimizeOnLaunch.IsChecked = _settings.MinimizeOnLaunch;
         ChkConfirmStop.IsChecked = _settings.ConfirmGameStop;
@@ -345,6 +410,7 @@ public partial class MainWindow : Window
         _settings.ShowSnapshots = ChkSnapshots.IsChecked == true;
         _settings.CloseLauncherOnStart = ChkCloseOnLaunch.IsChecked == true;
         _settings.ShowConsole = ChkShowConsole.IsChecked == true;
+        _settings.HideStreams = ChkHideStreams.IsChecked == true;
         _settings.AllowMultipleInstances = ChkAllowMultiple.IsChecked == true;
         _settings.MinimizeOnLaunch = ChkMinimizeOnLaunch.IsChecked == true;
         _settings.ConfirmGameStop = ChkConfirmStop.IsChecked == true;
@@ -1522,6 +1588,15 @@ public partial class MainWindow : Window
         _settings.ShowSnapshots = ChkSnapshots.IsChecked == true;
     }
 
+    private void ChkHideStreams_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settings.HideStreams = ChkHideStreams.IsChecked == true;
+        NavStreams.Visibility = _settings.HideStreams ? Visibility.Collapsed : Visibility.Visible;
+        if (_settings.HideStreams) _twitchStream.StopMonitoring();
+        else _twitchStream.StartMonitoring(_twitchAccount);
+    }
+
     // ---------- Создание / удаление ----------
 
     private void BtnNewInstance_Click(object sender, RoutedEventArgs e)
@@ -2255,6 +2330,117 @@ public partial class MainWindow : Window
         TxtSkinStatus.Text = "";
 
         AppendLog("Выполнен выход из аккаунта.");
+    }
+
+    private async void BtnTwitchLogin_Click(object sender, RoutedEventArgs e)
+    {
+        if (_twitchAuth.IsLoggingIn) return;
+
+        BtnTwitchLogin.IsEnabled = false;
+        BtnTwitchLogin.Content = "Ожидание...";
+        SetStage("Авторизация через Twitch...");
+
+        try
+        {
+            var account = await _twitchAuth.AuthenticateAsync();
+            if (account != null)
+            {
+                _twitchAccount = account;
+                TwitchStorage.Save(account);
+                _twitchStream.StartMonitoring(account);
+                UpdateTwitchUI();
+                AppendLog($"Twitch: авторизован как {account.Username}");
+            }
+            else
+            {
+                AppendLog("Twitch: авторизация отменена или не удалась.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Twitch ошибка: " + ex.Message);
+        }
+        finally
+        {
+            BtnTwitchLogin.IsEnabled = true;
+            BtnTwitchLogin.Content = "Войти через Twitch";
+            HideProgress();
+        }
+    }
+
+    private void UpdateTwitchUI()
+    {
+        if (_twitchAccount != null)
+        {
+            BtnTwitchLogin.Content = $"Twitch: {_twitchAccount.Username}";
+            BtnTwitchLogin.IsEnabled = false;
+        }
+        else
+        {
+            BtnTwitchLogin.Content = "Войти через Twitch";
+            BtnTwitchLogin.IsEnabled = true;
+        }
+    }
+
+    private void UpdateStreamInfoDisplay(TwitchStreamInfo? info)
+    {
+        if (PageStreams == null) return;
+
+        if (_twitchAccount == null)
+        {
+            StreamsAuthRequired.Visibility = Visibility.Visible;
+            StreamsContent.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        StreamsAuthRequired.Visibility = Visibility.Collapsed;
+        StreamsContent.Visibility = Visibility.Visible;
+
+        if (info == null)
+        {
+            StreamsStatus.Text = "Проверка...";
+            StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
+            StreamsTitle.Text = "";
+            StreamsGame.Text = "";
+            StreamsViewers.Text = "";
+            BtnOpenStream.IsEnabled = false;
+            return;
+        }
+
+        if (info.IsLive)
+        {
+            StreamsStatus.Text = "● В ЭФИРЕ";
+            StreamsStatus.Foreground = (Brush)FindResource("Danger");
+            StreamsTitle.Text = info.Title;
+            StreamsGame.Text = $"Игра: {info.GameName}";
+            StreamsViewers.Text = $"Зрителей: {info.ViewerCount}";
+            BtnOpenStream.IsEnabled = true;
+        }
+        else
+        {
+            StreamsStatus.Text = "Канал сейчас оффлайн";
+            StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
+            StreamsTitle.Text = "";
+            StreamsGame.Text = "";
+            StreamsViewers.Text = "";
+            BtnOpenStream.IsEnabled = false;
+        }
+    }
+
+    private void BtnOpenStream_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentStreamInfo?.IsLive == true)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = _currentStreamInfo.StreamUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
     }
 
     private void SetAccount(MinecraftAccount acc, bool refreshSkin)
@@ -3223,6 +3409,7 @@ public partial class MainWindow : Window
         PageContent.Visibility = tag == "7" ? Visibility.Visible : Visibility.Collapsed;
         PageBot.Visibility = tag == "8" ? Visibility.Visible : Visibility.Collapsed;
         PageNews.Visibility = tag == "9" ? Visibility.Visible : Visibility.Collapsed;
+        PageStreams.Visibility = tag == "10" ? Visibility.Visible : Visibility.Collapsed;
 
         if (tag == "1") { RefreshInstanceStats(); LoadScreenshots(); }
         if (tag == "6")
@@ -3233,6 +3420,7 @@ public partial class MainWindow : Window
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
         if (tag == "9") _ = DisplayFullNewsAsync();
+        if (tag == "10") UpdateStreamInfoDisplay(null);
     }
 
     // =====================================================================
@@ -3443,7 +3631,7 @@ public partial class MainWindow : Window
     private void SwitchTab(int index)
     {
         var navs = new[] { NavHome, NavInstances, NavMods, NavContent, NavServers,
-                           NavBot, NavAccount, NavSettings, NavConsole };
+                           NavBot, NavAccount, NavSettings, NavConsole, NavStreams };
 
         if (index >= 0 && index < navs.Length) navs[index].IsChecked = true;
     }

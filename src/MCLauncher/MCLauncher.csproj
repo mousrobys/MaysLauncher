@@ -38,21 +38,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="icon=logo.ico.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Using Include="System.IO" />
     <Using Include="System.Net.Http" />
     <Using Include="System.Collections.Generic" />
     <Using Include="System.Linq" />
     <Using Include="System.Threading" />
     <Using Include="System.Threading.Tasks" />
-  </ItemGroup>
-
-  <!-- Иконка встраивается в сборку, чтобы её можно было показать в окне -->
-  <ItemGroup>
-    <Resource Include="icon=logo.ico.ico" />
   </ItemGroup>
 
   
