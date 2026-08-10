@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -65,7 +65,7 @@ public partial class MainWindow : Window
         _bots = new BotManager(http);
         _twitchAuth = new TwitchAuthService();
         _twitchStream = new TwitchStreamService(http);
-        _twitchStream.StreamStatusChanged += OnTwitchStreamChanged;
+        _twitchStream.OnStatusChanged += OnTwitchStreamChanged;
 
         _downloads.Progress += OnProgress;
         _java.Progress += OnProgress;
@@ -170,7 +170,7 @@ catch (Exception ex)
         _twitchAccount = TwitchStorage.Load();
         if (_twitchAccount != null)
         {
-            _twitchStream.StartMonitoring(_twitchAccount);
+            _twitchStream.Start(_twitchAccount);
             UpdateTwitchUI();
         }
     }
@@ -1465,8 +1465,8 @@ catch (Exception ex)
         if (!IsLoaded) return;
         _settings.HideStreams = ChkHideStreams.IsChecked == true;
         NavStreams.Visibility = _settings.HideStreams ? Visibility.Collapsed : Visibility.Visible;
-        if (_settings.HideStreams) _twitchStream.StopMonitoring();
-        else _twitchStream.StartMonitoring(_twitchAccount);
+        if (_settings.HideStreams) _twitchStream.Stop();
+        else _twitchStream.Start(_twitchAccount);
     }
 
     // ---------- �������� / �������� ----------
@@ -2217,7 +2217,7 @@ private void BtnLogout_Click(object sender, RoutedEventArgs e)
             {
                 _twitchAccount = account;
                 TwitchStorage.Save(account);
-                _twitchStream.StartMonitoring(account);
+                _twitchStream.Start(account);
                 UpdateTwitchUI();
                 UpdateStreamInfoDisplay(null);
                 AppendLog($"Twitch: ����������� ��� {account.Username}");
@@ -2326,7 +2326,7 @@ catch (Exception ex)
 
     private async void BtnTwitchLogout_Click(object sender, RoutedEventArgs e)
     {
-        _twitchStream.StopMonitoring();
+        _twitchStream.Stop();
         TwitchStorage.Clear();
         _twitchAccount = null;
         _currentStreamInfo = null;

@@ -6,104 +6,87 @@ namespace MCLauncher.Services;
 public sealed class TwitchStreamService : IDisposable
 {
     private const string ClientId = "1w4str5herfmk8s6ugx6qbh12y95yi";
-    private const string TargetChannel = "moysecamm_tw";
+    private const string Channel = "moysecamm_tw";
 
     private readonly HttpClient _http;
-    private Timer? _pollTimer;
+    private Timer? _timer;
     private bool _wasLive;
-    private TwitchAccount? _account;
 
-    public event Action<TwitchStreamInfo?>? StreamStatusChanged;
+    public event Action<TwitchStreamInfo?>? OnStatusChanged;
 
     public TwitchStreamService(HttpClient http)
     {
         _http = http;
     }
 
-    public void StartMonitoring(TwitchAccount? account)
+    public void Start(TwitchAccount? account)
     {
-        _account = account;
-        _wasLive = false;
-        _pollTimer?.Dispose();
-        _pollTimer = null;
-
+        Stop();
         if (account == null) return;
 
-        _pollTimer = new Timer(async _ => await CheckStreamAsync().ConfigureAwait(false), null,
-            TimeSpan.Zero, TimeSpan.FromSeconds(30));
+        _timer = new Timer(async _ => await CheckAsync().ConfigureAwait(false),
+            null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
     }
 
-    public void StopMonitoring()
+    public void Stop()
     {
-        _pollTimer?.Dispose();
-        _pollTimer = null;
+        _timer?.Dispose();
+        _timer = null;
+        _wasLive = false;
     }
 
     public async Task<TwitchStreamInfo?> GetStreamInfoAsync()
     {
-        if (_account == null) return null;
-        return await FetchStreamInfoAsync().ConfigureAwait(false);
+        if (_http.DefaultRequestHeaders.Authorization == null) return null;
+        return await FetchAsync().ConfigureAwait(false);
     }
 
-    private async Task CheckStreamAsync()
+    private async Task CheckAsync()
     {
-        var info = await FetchStreamInfoAsync().ConfigureAwait(false);
-        var isLive = info?.IsLive ?? false;
+        var info = await FetchAsync().ConfigureAwait(false);
+        var live = info?.IsLive ?? false;
 
-        if (isLive && !_wasLive)
+        if (live && !_wasLive)
         {
             _wasLive = true;
-            StreamStatusChanged?.Invoke(info);
+            OnStatusChanged?.Invoke(info);
         }
-        else if (!isLive)
+        else if (!live)
         {
             _wasLive = false;
         }
     }
 
-    private async Task<TwitchStreamInfo?> FetchStreamInfoAsync()
+    private async Task<TwitchStreamInfo?> FetchAsync()
     {
         try
         {
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _account!.AccessToken);
-            _http.DefaultRequestHeaders.Add("Client-Id", ClientId);
+            var resp = await _http.GetAsync(
+                $"https://api.twitch.tv/helix/streams?user_login={Channel}").ConfigureAwait(false);
 
-            var response = await _http.GetAsync(
-                $"https://api.twitch.tv/helix/streams?user_login={TargetChannel}").ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
 
-            if (!response.IsSuccessStatusCode) return null;
-
-            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var doc = JsonDocument.Parse(json);
 
             if (!doc.RootElement.TryGetProperty("data", out var data) || data.GetArrayLength() == 0)
             {
-                return new TwitchStreamInfo { IsLive = false, ChannelName = TargetChannel };
+                return new TwitchStreamInfo { IsLive = false, ChannelName = Channel };
             }
 
-            var stream = data[0];
+            var s = data[0];
             return new TwitchStreamInfo
             {
                 IsLive = true,
-                Title = stream.GetProperty("title").GetString() ?? "",
-                GameName = stream.GetProperty("game_name").GetString() ?? "",
-                ThumbnailUrl = stream.GetProperty("thumbnail_url").GetString()?.Replace("{width}", "480").Replace("{height}", "270") ?? "",
-                ViewerCount = stream.GetProperty("viewer_count").GetInt32(),
-                StartedAt = stream.TryGetProperty("started_at", out var sa)
-                    ? DateTimeOffset.Parse(sa.GetString() ?? DateTimeOffset.UtcNow.ToString())
-                    : DateTimeOffset.UtcNow,
-                ChannelName = TargetChannel
+                Title = s.GetProperty("title").GetString() ?? "",
+                GameName = s.GetProperty("game_name").GetString() ?? "",
+                ViewerCount = s.GetProperty("viewer_count").GetInt32(),
+                StartedAt = s.GetProperty("started_at").GetString() ?? "",
+                ChannelName = Channel
             };
         }
-        catch (Exception ex)
-        {
-            Log.Warn($"Twitch stream check error: {ex.Message}");
-            return null;
-        }
+        catch { return null; }
     }
 
-    public void Dispose()
-    {
-        StopMonitoring();
-    }
+    public void Dispose() => Stop();
 }

@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -8,16 +7,16 @@ namespace MCLauncher.Services;
 
 public static class TwitchStorage
 {
-    private static string DataFile => Path.Combine(LauncherPaths.Root, "twitch_session.json");
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("Mays.Twitch.v1");
+    private static string FilePath => Path.Combine(LauncherPaths.Root, "twitch_session.json");
+    private static readonly byte[] Salt = Encoding.UTF8.GetBytes("Mays.Twitch.v1");
 
     public static TwitchAccount? Load()
     {
         try
         {
-            if (!System.IO.File.Exists(DataFile)) return null;
-            var encrypted = System.IO.File.ReadAllBytes(DataFile);
-            var decrypted = ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
+            if (!File.Exists(FilePath)) return null;
+            var encrypted = File.ReadAllBytes(FilePath);
+            var decrypted = ProtectedData.Unprotect(encrypted, Salt, DataProtectionScope.CurrentUser);
             return JsonSerializer.Deserialize<TwitchAccount>(decrypted);
         }
         catch { return null; }
@@ -28,17 +27,17 @@ public static class TwitchStorage
         try
         {
             if (account == null) { Clear(); return; }
-            var json = JsonSerializer.SerializeToUtf8Bytes(account);
-            var encrypted = ProtectedData.Protect(json, Entropy, DataProtectionScope.CurrentUser);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(account);
+            var encrypted = ProtectedData.Protect(bytes, Salt, DataProtectionScope.CurrentUser);
             Directory.CreateDirectory(LauncherPaths.Root);
-            System.IO.File.WriteAllBytes(DataFile, encrypted);
+            File.WriteAllBytes(FilePath, encrypted);
         }
         catch { }
     }
 
     public static void Clear()
     {
-        try { if (System.IO.File.Exists(DataFile)) System.IO.File.Delete(DataFile); }
+        try { if (File.Exists(FilePath)) File.Delete(FilePath); }
         catch { }
     }
 }
