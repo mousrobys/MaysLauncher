@@ -167,16 +167,6 @@
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
                             </RadioButton>
-
-                            <RadioButton x:Name="NavStreams" Style="{StaticResource NavToggle}"
-                                         Checked="Nav_Checked" Tag="10">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xF28B;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="#9146FF"/>
-                                    <TextBlock Text="Стримы" Margin="12,0,0,0" VerticalAlignment="Center"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                                </StackPanel>
-                            </RadioButton>
                         </StackPanel>
                         </ScrollViewer>
 
@@ -211,6 +201,7 @@
                     <!-- ============ 0. ГЛАВНАЯ ============ -->
                     <Grid x:Name="PageHome" Grid.Row="0" Margin="24,14,24,0">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -262,10 +253,8 @@
                                     </Border>
                                 </Grid>
                             </Grid>
-                        </Border>
-
-                        <!-- Быстрые действия -->
-                        <Grid Grid.Row="2" Margin="0,14,0,0" VerticalAlignment="Top">
+                        </Border><!-- Быстрые действия -->
+                        <Grid Grid.Row="3" Margin="0,14,0,0" VerticalAlignment="Top">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -312,51 +301,6 @@
                                                HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                        </Grid>
-                    </Grid>
-
-                    <!-- ============ 10. СТРИМЫ ============ -->
-                    <Grid x:Name="PageStreams" Grid.Row="0" Margin="24,14,24,0" Visibility="Collapsed">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0">
-                            <TextBlock Text="Стримы" Style="{StaticResource H1}"/>
-                            <TextBlock Text="Статус канала moysecamm_tw"
-                                       Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,4,0,0"/>
-                        </StackPanel>
-
-                        <Grid Grid.Row="1" Margin="0,16,0,0">
-                            <Grid x:Name="StreamsAuthRequired" Visibility="Collapsed">
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="48"
-                                               Foreground="{DynamicResource Danger}" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Пройдите авторизацию через Twitch, чтобы получить доступ к этой вкладке"
-                                               Foreground="{DynamicResource FgMuted}" FontSize="14"
-                                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,16,0,0"
-                                               MaxWidth="400"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <Grid x:Name="StreamsContent" Visibility="Collapsed">
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock x:Name="StreamsStatus" Text="Проверка..."
-                                               FontSize="18" FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock x:Name="StreamsTitle" FontSize="14" Margin="0,12,0,0"
-                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="500"/>
-                                    <TextBlock x:Name="StreamsGame" FontSize="13" Margin="0,8,0,0"
-                                               Foreground="{DynamicResource FgMuted}"/>
-                                    <TextBlock x:Name="StreamsViewers" FontSize="13" Margin="0,4,0,0"
-                                               Foreground="{DynamicResource FgMuted}"/>
-                                    <Button x:Name="BtnOpenStream" Content="Открыть стрим" Margin="0,20,0,0"
-                                            Padding="20,10" Click="BtnOpenStream_Click"
-                                            Background="#9146FF" Foreground="White"
-                                            FontWeight="SemiBold" BorderThickness="0"
-                                            Cursor="Hand" IsEnabled="False"/>
-                                </StackPanel>
-                            </Grid>
                         </Grid>
                     </Grid>
 
@@ -1024,52 +968,32 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="1" Margin="14,0,0,0">
-                                    <!-- Twitch Auth Panel (shown when not logged in) -->
-                                    <Border x:Name="TwitchAuthPanel" Style="{StaticResource Card}">
+                                    <Border Style="{StaticResource Card}">
                                         <StackPanel>
-                                            <TextBlock Text="TWITCH АВТОРИЗАЦИЯ" Style="{StaticResource Caption}"/>
-                                            <TextBlock Text="Войдите через Twitch чтобы получить доступ к стримам и уведомлениям."
+                                            <TextBlock Text="ТЕКУЩИЙ АККАУНТ" Style="{StaticResource Caption}"/>
+                                            <TextBlock x:Name="TxtAuthState" Text="Вы не вошли в аккаунт."
                                                        Foreground="{DynamicResource FgMuted}" FontSize="12"
-                                                       TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                            <Button x:Name="BtnTwitchLogin" Margin="0,12,0,0"
-                                                    MinWidth="196" Click="BtnTwitchLogin_Click"
-                                                    Background="#9146FF" Foreground="White"
-                                                    FontWeight="SemiBold" Padding="8,6"
-                                                    BorderThickness="0" Cursor="Hand"
-                                                    HorizontalAlignment="Left">
+                                                       TextWrapping="Wrap"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                <Button x:Name="BtnLogin" Style="{StaticResource AccentButton}"
+                                                        Content="Войти через Microsoft" MinWidth="196"
+                                                        IsEnabled="False"
+                                                        ToolTip="Функция временно недоступна"/>
+                                                <Button x:Name="BtnLogout" Style="{StaticResource DangerButton}"
+                                                        Content="Выйти" Margin="10,0,0,0" Click="BtnLogout_Click"
+                                                        IsEnabled="False" MinWidth="110"/>
+                                            </StackPanel>
+                                            <Border Background="#2A1A1D" CornerRadius="8" Padding="11,8"
+                                                    Margin="0,12,0,0">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="&#xE906;" FontFamily="Segoe MDL2 Assets"
-                                                               FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBlock Text="Войти через Twitch" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                                               FontSize="13" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Danger}"/>
+                                                    <TextBlock Text="Вход через Microsoft временно не обслуживается — сервис на техническом обслуживании. Используйте оффлайн-профиль ниже."
+                                                               Foreground="{DynamicResource Danger}" FontSize="11.5"
+                                                               Margin="9,0,0,0" TextWrapping="Wrap" MaxWidth="430"/>
                                                 </StackPanel>
-                                            </Button>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- Twitch Account Panel (shown when logged in) -->
-                                    <Border x:Name="TwitchAccountPanel" Style="{StaticResource Card}" Visibility="Collapsed">
-                                        <StackPanel>
-                                            <TextBlock Text="УПРАВЛЕНИЕ АККАУНТОМ" Style="{StaticResource Caption}"/>
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="64"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" Width="56" Height="56" CornerRadius="28"
-                                                        Background="#161A21" ClipToBounds="True">
-                                                    <Image x:Name="TwitchAccountAvatar" Stretch="UniformToFill"/>
-                                                </Border>
-                                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock x:Name="TwitchAccountName" Text="" FontWeight="Bold" FontSize="15"/>
-                                                    <TextBlock x:Name="TwitchAccountStatus" Text="Вы авторизованы через Twitch"
-                                                               Foreground="{DynamicResource FgMuted}" FontSize="11" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                            </Grid>
-                                            <Button x:Name="BtnTwitchLogout" Content="Выйти из Twitch" Margin="0,12,0,0"
-                                                    Click="BtnTwitchLogout_Click" Background="{StaticResource Danger}"
-                                                    Foreground="White" FontWeight="SemiBold" Padding="12,8"
-                                                    BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"
-                                                    MinWidth="140"/>
+                                            </Border>
                                         </StackPanel>
                                     </Border>
 
@@ -1226,9 +1150,6 @@
                                             <CheckBox x:Name="ChkShowConsole" Margin="0,12,0,0"
                                                       Checked="Setting_Changed" Unchecked="Setting_Changed"
                                                       Content="Показывать консоль Java (для отладки)"/>
-                                            <CheckBox x:Name="ChkHideStreams" Margin="0,12,0,0"
-                                                      Checked="ChkHideStreams_Changed" Unchecked="ChkHideStreams_Changed"
-                                                      Content="Скрыть вкладку «Стримы» и отключить Twitch"/>
                                             <CheckBox x:Name="ChkSnapshots" Margin="0,12,0,0"
                                                       Checked="ChkSnapshots_Changed" Unchecked="ChkSnapshots_Changed"
                                                       Content="Показывать снапшоты в списке версий"/>

@@ -27,12 +27,6 @@ public partial class MainWindow : Window
     private readonly ModpackService _modpacks;
     private readonly BotManager _bots;
     private readonly GameSessionManager _sessions = new();
-    private readonly TwitchAuthService _twitchAuth;
-    private readonly TwitchStreamService _twitchStream;
-
-    private TwitchAccount? _twitchAccount;
-    private TwitchStreamInfo? _currentStreamInfo;
-    private DispatcherTimer? _streamCheckTimer;
 
     private LauncherSettings _settings = new();
     private MinecraftAccount? _account;
@@ -63,9 +57,6 @@ public partial class MainWindow : Window
         _mods = new ModService(http);
         _modpacks = new ModpackService(http);
         _bots = new BotManager(http);
-        _twitchAuth = new TwitchAuthService();
-        _twitchStream = new TwitchStreamService(http);
-        _twitchStream.OnStatusChanged += OnTwitchStreamChanged;
 
         _downloads.Progress += OnProgress;
         _java.Progress += OnProgress;
@@ -88,7 +79,7 @@ public partial class MainWindow : Window
     }
 
     // =====================================================================
-    //  ������ ����������
+    //  ЗАПУСК ПРИЛОЖЕНИЯ
     // =====================================================================
 
     private async void OnLoadedAsync(object sender, RoutedEventArgs e)
@@ -96,7 +87,7 @@ public partial class MainWindow : Window
         _initializing = true;
         _settings = SettingsService.Load();
 
-        // ��������������� ���� �����, ���� ��� ����
+        // Восстанавливаем свою схему, если она была
         if (!string.IsNullOrWhiteSpace(_settings.CustomThemeJson))
         {
             try
@@ -104,7 +95,7 @@ public partial class MainWindow : Window
                 ThemeService.CustomPreset =
                     System.Text.Json.JsonSerializer.Deserialize<ThemePreset>(_settings.CustomThemeJson);
             }
-            catch (Exception ex) { Log.Warn("���� ���� ����������: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("Своя тема повреждена: " + ex.Message); }
         }
 
         ThemeService.ApplyTheme(_settings.Theme);
@@ -116,7 +107,7 @@ public partial class MainWindow : Window
         ApplyBanner();
         ApplyWindowBackground();
 
-        AppendLog("MaysLauncher �������. �����: " + _settings.GameDir);
+        AppendLog("MaysLauncher запущен. Папка: " + _settings.GameDir);
 
         _uptimeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _uptimeTimer.Tick += (_, _) => UpdateUptimeBadge();
@@ -133,14 +124,15 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    SetStage("�������� ������ Microsoft...");
+                    SetStage("Обновляю сессию Microsoft...");
                     var refreshed = await _auth.RefreshAsync(saved.MicrosoftRefreshToken!);
                     AccountStorage.Save(refreshed);
                     SetAccount(refreshed, refreshSkin: true);
                 }
-catch (Exception ex)
+                catch (Exception ex)
                 {
                     AppendLog("Не удалось обновить сессию: " + ex.Message);
+                    TxtAuthState.Text = "Сессия истекла — войдите заново.";
                 }
                 finally { HideProgress(); }
             }
@@ -151,78 +143,20 @@ catch (Exception ex)
         _initializing = false;
         UpdateRunStateUi();
 
-        // ������ ���� �� ������ ������ �������� � ������� ��� ��������� ��������
+        // Колесо мыши не должно менять значения в списках при прокрутке страницы
         Dispatcher.BeginInvoke(new Action(() => SetupWheelHandling(this)),
             System.Windows.Threading.DispatcherPriority.Loaded);
 
         _ = RefreshServersAsync();
-        InitializeTwitch();
-    }
-
-    private void InitializeTwitch()
-    {
-        if (_settings.HideStreams)
-        {
-            NavStreams.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        _twitchAccount = TwitchStorage.Load();
-        if (_twitchAccount != null)
-        {
-            _twitchStream.Start(_twitchAccount);
-            UpdateTwitchUI();
-        }
-    }
-
-    private void OnTwitchStreamChanged(TwitchStreamInfo? info)
-    {
-        Dispatcher.Invoke(() =>
-        {
-            _currentStreamInfo = info;
-            UpdateStreamInfoDisplay(info);
-
-            if (info?.IsLive == true)
-            {
-                ShowStreamNotification(info);
-            }
-        });
-    }
-
-    private void ShowStreamNotification(TwitchStreamInfo info)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo("powershell",
-                $"-Command \"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
-                "$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastToastTemplateType]::ToastText02); " +
-                "$text = $template.GetElementsByTagName('text'); " +
-                "$text[0].AppendChild($template.CreateTextNode('moysecamm_tw �������� �����!')) | Out-Null; " +
-                "$text[1].AppendChild($template.CreateTextNode('{info.Title}')) | Out-Null; " +
-                "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); " +
-                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('MaysLauncher').Show($toast)\"")
-            {
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-            Process.Start(psi);
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Toast notification failed: " + ex.Message);
-        }
-    }
-
-
-    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    }    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_sessions.AnyRunning)
         {
             var r = MessageBox.Show(
-                $"������ �������� ���: {_sessions.RunningCount}.\n\n" +
-                "������� ������� ������ � �����?\n" +
-                "���� � ������� ���������, ���� ��������� ��������.",
-                "���� ��������", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                $"Сейчас запущено игр: {_sessions.RunningCount}.\n\n" +
+                "Закрыть лаунчер вместе с игрой?\n" +
+                "«Нет» — лаунчер закроется, игра продолжит работать.",
+                "Игра запущена", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
             if (r == MessageBoxResult.Cancel) { e.Cancel = true; return; }
             if (r == MessageBoxResult.Yes) _sessions.StopAllAsync().GetAwaiter().GetResult();
@@ -233,7 +167,7 @@ catch (Exception ex)
     }
 
     // =====================================================================
-    //  ��������� <-> UI
+    //  НАСТРОЙКИ <-> UI
     // =====================================================================
 
     private void ApplySettingsToUi()
@@ -241,15 +175,14 @@ catch (Exception ex)
         if (string.IsNullOrWhiteSpace(_settings.GameDir)) _settings.GameDir = LauncherPaths.Root;
 
         SldMemory.Value = Math.Clamp(_settings.MaxMemoryMb, 1024, 16384);
-        TxtMemory.Text = $"{_settings.MaxMemoryMb} ��";
-        TxtBadgeRam.Text = $"RAM: {_settings.MaxMemoryMb} ��";
+        TxtMemory.Text = $"{_settings.MaxMemoryMb} МБ";
+        TxtBadgeRam.Text = $"RAM: {_settings.MaxMemoryMb} МБ";
         TxtWidth.Text = _settings.WindowWidth.ToString();
         TxtHeight.Text = _settings.WindowHeight.ToString();
         ChkFullscreen.IsChecked = _settings.Fullscreen;
         ChkSnapshots.IsChecked = _settings.ShowSnapshots;
         ChkCloseOnLaunch.IsChecked = _settings.CloseLauncherOnStart;
         ChkShowConsole.IsChecked = _settings.ShowConsole;
-        ChkHideStreams.IsChecked = _settings.HideStreams;
         ChkAllowMultiple.IsChecked = _settings.AllowMultipleInstances;
         ChkMinimizeOnLaunch.IsChecked = _settings.MinimizeOnLaunch;
         ChkConfirmStop.IsChecked = _settings.ConfirmGameStop;
@@ -269,8 +202,8 @@ catch (Exception ex)
 
         var totalRam = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024));
         TxtMemoryHint.Text = totalRam > 0
-            ? $"����� � �������: {totalRam} ��. ��� ��������� ���� ������ ���������� 2048�4096 ��."
-            : "��� ��������� ���� ������ ���������� 2048�4096 ��.";
+            ? $"Всего в системе: {totalRam} МБ. Для ванильной игры обычно достаточно 2048–4096 МБ."
+            : "Для ванильной игры обычно достаточно 2048–4096 МБ.";
     }
 
     private void PersistSettings()
@@ -282,7 +215,6 @@ catch (Exception ex)
         _settings.ShowSnapshots = ChkSnapshots.IsChecked == true;
         _settings.CloseLauncherOnStart = ChkCloseOnLaunch.IsChecked == true;
         _settings.ShowConsole = ChkShowConsole.IsChecked == true;
-        _settings.HideStreams = ChkHideStreams.IsChecked == true;
         _settings.AllowMultipleInstances = ChkAllowMultiple.IsChecked == true;
         _settings.MinimizeOnLaunch = ChkMinimizeOnLaunch.IsChecked == true;
         _settings.ConfirmGameStop = ChkConfirmStop.IsChecked == true;
@@ -295,7 +227,7 @@ catch (Exception ex)
 
         SettingsService.Save(_settings);
 
-        // ������ ������ ��������� ������ ����� �� ������� ��������
+        // Список сборок сохраняем только когда он реально загружен
         if (!_initializing && InstanceService.Loaded) InstanceService.SaveAll(_instances);
     }
 
@@ -311,24 +243,24 @@ catch (Exception ex)
             {
                 if (list.Count == 0)
                 {
-                    TxtBadgeJava.Text = "Java: �� �������";
-                    TxtJavaList.Text = "Java �� ����������. ������� ������� ������ ������ �������������.";
+                    TxtBadgeJava.Text = "Java: не найдена";
+                    TxtJavaList.Text = "Java не обнаружена. Лаунчер скачает нужную версию автоматически.";
                 }
                 else
                 {
                     TxtBadgeJava.Text = $"Java {list[0].MajorVersion}";
-                    TxtJavaList.Text = "�������:\n" + string.Join("\n", list.Select(j => "  � " + j));
+                    TxtJavaList.Text = "Найдено:\n" + string.Join("\n", list.Select(j => "  • " + j));
                 }
             });
         }
-        catch (Exception ex) { Log.Warn("������ ������ Java: " + ex.Message); }
+        catch (Exception ex) { Log.Warn("Ошибка поиска Java: " + ex.Message); }
     }
 
     // =====================================================================
-    //  ������� ���
+    //  ВНЕШНИЙ ВИД
     // =====================================================================
 
-    // ---------- ���� ----------
+    // ---------- Темы ----------
 
     private void BuildThemeCards()
     {
@@ -361,10 +293,10 @@ catch (Exception ex)
         RefreshContent();
 
         SettingsService.Save(_settings);
-        AppendLog($"���� ��������: {name}");
+        AppendLog($"Тема изменена: {name}");
     }
 
-    // ---------- ��� ���� ----------
+    // ---------- Фон окна ----------
 
     private void ApplyWindowBackground()
     {
@@ -378,8 +310,8 @@ catch (Exception ex)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "�������� ���� ��� ���� ��������",
-            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp;*.webp|��� �����|*.*"
+            Title = "Выберите фото для фона лаунчера",
+            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.webp|Все файлы|*.*"
         };
         if (dlg.ShowDialog(this) != true) return;
 
@@ -387,7 +319,7 @@ catch (Exception ex)
         TxtWindowBg.Text = dlg.FileName;
         ApplyWindowBackground();
         SettingsService.Save(_settings);
-        AppendLog("���������� ��� ��������: " + Path.GetFileName(dlg.FileName));
+        AppendLog("Установлен фон лаунчера: " + Path.GetFileName(dlg.FileName));
     }
 
     private void BtnClearWindowBg_Click(object sender, RoutedEventArgs e)
@@ -407,7 +339,7 @@ catch (Exception ex)
         ApplyWindowBackground();
     }
 
-    // ---------- ���� ���� ----------
+    // ---------- Язык игры ----------
 
     private void GameLang_Checked(object sender, RoutedEventArgs e)
     {
@@ -464,7 +396,7 @@ catch (Exception ex)
             rb.Checked += (s, _) =>
             {
                 if (!IsLoaded) return;
-                _settings.BackgroundStyle = (s as FrameworkElement)?.Tag?.ToString() ?? "�������";
+                _settings.BackgroundStyle = (s as FrameworkElement)?.Tag?.ToString() ?? "Изумруд";
                 ApplyBanner();
                 SettingsService.Save(_settings);
             };
@@ -491,7 +423,7 @@ catch (Exception ex)
                 ImgCustomBanner.Visibility = Visibility.Visible;
                 return;
             }
-            catch (Exception ex) { Log.Warn("�� ������� ��������� ������: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("Не удалось загрузить баннер: " + ex.Message); }
         }
 
         ImgCustomBanner.Source = null;
@@ -502,8 +434,8 @@ catch (Exception ex)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "�������� ��� �������",
-            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp|��� �����|*.*"
+            Title = "Картинка для баннера",
+            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp|Все файлы|*.*"
         };
         if (dlg.ShowDialog(this) != true) return;
 
@@ -522,24 +454,24 @@ catch (Exception ex)
     }
 
     // =====================================================================
-    //  ������ � ������
+    //  ВЕРСИИ И СБОРКИ
     // =====================================================================
 
     private async Task LoadVersionsAsync()
     {
         try
         {
-            SetStage("�������� �������� ������ Mojang...");
+            SetStage("Загружаю манифест версий Mojang...");
             ShowProgress(indeterminate: true);
             _manifest = await _versions.GetManifestAsync();
 
             var supported = VersionService.FilterSupported(_manifest, _settings.ShowSnapshots);
-            AppendLog($"�������� ��������: {_manifest.Versions.Count} ������, �������� {supported.Count} (?1.16.5).");
+            AppendLog($"Манифест загружен: {_manifest.Versions.Count} версий, доступно {supported.Count} (≥1.16.5).");
         }
         catch (Exception ex)
         {
-            AppendLog("������ �������� ������: " + ex.Message);
-            TxtBannerInfo.Text = "�� ������� �������� ������ ������. ��������� ��������.";
+            AppendLog("Ошибка загрузки версий: " + ex.Message);
+            TxtBannerInfo.Text = "Не удалось получить список версий. Проверьте интернет.";
         }
         finally { HideProgress(); }
     }
@@ -550,26 +482,26 @@ catch (Exception ex)
 
         if (!InstanceService.Loaded)
         {
-            AppendLog("��������: ������ ������ �� ��������, ��������� �� �����������. " +
-                      "������������� �������.");
+            AppendLog("ВНИМАНИЕ: список сборок не прочитан, изменения не сохраняются. " +
+                      "Перезапустите лаунчер.");
             MessageBox.Show(
-                "�� ������� ��������� ������ ������.\n\n" +
-                "����� �� �������� ������, ���������� ��������� �� �����������.\n" +
-                "����� ������ �� ����� �� �������.",
-                "������ ������", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "Не удалось прочитать список сборок.\n\n" +
+                "Чтобы не потерять данные, сохранение отключено до перезапуска.\n" +
+                "Файлы сборок на диске не тронуты.",
+                "Список сборок", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        // ����� �� ����� ����, � � ������ �� ��� � ���������������
+        // Папки на диске есть, а в списке их нет — восстанавливаем
         var orphans = InstanceService.ScanOrphans(_instances);
         if (orphans.Count > 0)
         {
             _instances.AddRange(orphans);
             InstanceService.SaveAll(_instances);
-            AppendLog($"������� ������ �� �����: {orphans.Count}.");
+            AppendLog($"Найдено сборок на диске: {orphans.Count}.");
         }
 
-        // ��������� ������ ������ ������ ���� �������� ������� ����������.
-        // ����� (��� ����) ������ ��� � ����� ����� ������������ ������.
+        // Стартовую сборку создаём ТОЛЬКО если манифест реально загрузился.
+        // Иначе (нет сети) просто ждём — иначе затрём существующий список.
         if (_instances.Count == 0 && _manifest is not null && InstanceService.Loaded)
         {
             var latest = VersionService.FilterSupported(_manifest, false).FirstOrDefault();
@@ -585,13 +517,13 @@ catch (Exception ex)
                 InstanceService.EnsureFolders(inst);
                 _instances.Add(inst);
                 InstanceService.SaveAll(_instances);
-                AppendLog($"������� ��������� ������ �{inst.Name}�.");
+                AppendLog($"Создана стартовая сборка «{inst.Name}».");
             }
         }
         else if (_instances.Count == 0 && _manifest is null)
         {
-            AppendLog("��� ���������� � Mojang � ������ ������ ����������. " +
-                      "������ �� ���������, ������������ ������ ���������.");
+            AppendLog("Нет соединения с Mojang — список версий недоступен. " +
+                      "Сборки не создаются, существующие данные сохранены.");
         }
 
         RefreshInstanceLists();
@@ -599,8 +531,8 @@ catch (Exception ex)
     }
 
     /// <summary>
-    /// ������� ������ � ������� �� �����: ���� ������ ������ (������, ���������),
-    /// �������� ������ ��� ��������� �������������, � �� ����� ������ �.
+    /// Сверяет сборки с файлами на диске: если клиент пропал (чистка, антивирус),
+    /// помечаем сборку как требующую переустановки, а не молча теряем её.
     /// </summary>
     private void VerifyInstalledVersions()
     {
@@ -618,8 +550,8 @@ catch (Exception ex)
         }
 
         if (missing.Count > 0)
-            AppendLog($"������� �������� �������: {string.Join(", ", missing)}. " +
-                      "����� ��������� ��� ������� ������ܻ.");
+            AppendLog($"Требуют загрузки клиента: {string.Join(", ", missing)}. " +
+                      "Файлы скачаются при нажатии «ИГРАТЬ».");
     }
 
     private void RefreshInstanceLists()
@@ -643,8 +575,8 @@ catch (Exception ex)
         else
         {
             _selectedInstance = null;
-            TxtBannerVersion.Text = "��� ������";
-            TxtBannerInfo.Text = "�������� ������ �� ������� �������.";
+            TxtBannerVersion.Text = "Нет сборок";
+            TxtBannerInfo.Text = "Создайте сборку на вкладке «Версии».";
         }
     }
 
@@ -662,7 +594,7 @@ catch (Exception ex)
         if (!ReferenceEquals(CbInstances.SelectedItem, inst)) CbInstances.SelectedItem = inst;
     }
 
-    /// <summary>��� �� ������ � ������� �������� �, ����� ���������� ����.</summary>
+    /// <summary>ПКМ по сборке — сначала выделяем её, потом показываем меню.</summary>
     private void LstInstances_RightClick(object sender, MouseButtonEventArgs e)
     {
         var item = ItemsControl.ContainerFromElement(LstInstances, e.OriginalSource as DependencyObject)
@@ -692,8 +624,8 @@ catch (Exception ex)
     {
         if (_selectedInstance is null) return;
 
-        var dlg = new TextInputDialog("������������� ������",
-            $"����� �������� ��� �{_selectedInstance.Name}�:", _selectedInstance.Name) { Owner = this };
+        var dlg = new TextInputDialog("Переименовать сборку",
+            $"Новое название для «{_selectedInstance.Name}»:", _selectedInstance.Name) { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
@@ -708,7 +640,7 @@ catch (Exception ex)
         var restored = _instances.FirstOrDefault(i => i.Id == id);
         if (restored is not null) { CbInstances.SelectedItem = restored; SelectInstance(restored); }
 
-        AppendLog($"������ �������������: �{name}�");
+        AppendLog($"Сборка переименована: «{name}»");
     }
 
     private void CtxMemory_Click(object sender, RoutedEventArgs e)
@@ -719,14 +651,14 @@ catch (Exception ex)
             ? _selectedInstance.MaxMemoryMb.ToString()
             : _settings.MaxMemoryMb.ToString();
 
-        var dlg = new TextInputDialog("������ ������",
-            "������� �� �������� ���� ������? (0 � ��� � ����� ����������)", current) { Owner = this };
+        var dlg = new TextInputDialog("Память сборки",
+            "Сколько МБ выделить этой сборке? (0 — как в общих настройках)", current) { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
         if (!int.TryParse(dlg.Value.Trim(), out var mb) || mb < 0)
         {
-            MessageBox.Show("������� �����, �������� 4096.", "������������ ��������",
+            MessageBox.Show("Введите число, например 4096.", "Некорректное значение",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -736,8 +668,8 @@ catch (Exception ex)
         FillInstanceSettings(_selectedInstance);
 
         AppendLog(mb > 0
-            ? $"��� �{_selectedInstance.Name}� ������ {mb} ��."
-            : $"��� �{_selectedInstance.Name}� ������ ��� � ����� ����������.");
+            ? $"Для «{_selectedInstance.Name}» задано {mb} МБ."
+            : $"Для «{_selectedInstance.Name}» память как в общих настройках.");
     }
     private void SelectInstance(GameInstance inst)
     {
@@ -747,16 +679,16 @@ catch (Exception ex)
         TxtBannerVersion.Text = inst.Name;
         var installed = File.Exists(GamePaths.ForInstance(inst).VersionJar(inst.McVersion));
         TxtBannerInfo.Text = installed
-            ? $"Minecraft {inst.McVersion} � ������ � �������"
-            : $"Minecraft {inst.McVersion} � ����� ��������� � �������� Mojang";
+            ? $"Minecraft {inst.McVersion} · готова к запуску"
+            : $"Minecraft {inst.McVersion} · будет загружена с серверов Mojang";
 
         TxtBadgeLoader.Text = inst.LoaderDisplay;
 
-        // ������
+        // Детали
         TxtInstName.Text = inst.Name;
         TxtInstVersion.Text = "Minecraft " + inst.McVersion;
         TxtInstLoader.Text = inst.LoaderDisplay;
-        TxtInstPlaytime.Text = inst.TotalPlaySeconds > 0 ? "� ����: " + inst.PlayTimeDisplay : "��� �� �����������";
+        TxtInstPlaytime.Text = inst.TotalPlaySeconds > 0 ? "В игре: " + inst.PlayTimeDisplay : "Ещё не запускалась";
 
         RefreshInstanceStats();
         LoadScreenshots();
@@ -769,7 +701,7 @@ catch (Exception ex)
         UpdateRunStateUi();
     }
 
-    // ---------- �������������� ��������� ������ ----------
+    // ---------- Индивидуальные настройки сборки ----------
 
     private bool _loadingInstSettings;
 
@@ -789,7 +721,7 @@ catch (Exception ex)
         finally { _loadingInstSettings = false; }
     }
 
-    // ---------- ������� ����� ----------
+    // ---------- Профили модов ----------
 
     private void RefreshModProfiles()
     {
@@ -805,8 +737,8 @@ catch (Exception ex)
                 : profiles[0];
 
             var counts = profiles.Select(p =>
-                $"{p} � {ModProfileService.CountMods(_selectedInstance, p)}");
-            TxtProfileInfo.Text = "�����: " + string.Join("  �  ", counts);
+                $"{p} — {ModProfileService.CountMods(_selectedInstance, p)}");
+            TxtProfileInfo.Text = "Модов: " + string.Join("  ·  ", counts);
         }
         finally { _loadingInstSettings = false; }
     }
@@ -820,8 +752,8 @@ catch (Exception ex)
 
         if (_sessions.IsInstanceRunning(_selectedInstance.Id))
         {
-            MessageBox.Show("������ ������ �������, ���� ������ ��������.",
-                "���� ��������", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Нельзя менять профиль, пока сборка запущена.",
+                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
             RefreshModProfiles();
             return;
         }
@@ -835,11 +767,11 @@ catch (Exception ex)
             RefreshInstanceStats();
             RefreshContent();
 
-            AppendLog($"������� �����: �{target}�");
+            AppendLog($"Профиль модов: «{target}»");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "�� ������� ����������� �������",
+            MessageBox.Show(ex.Message, "Не удалось переключить профиль",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             RefreshModProfiles();
         }
@@ -849,8 +781,8 @@ catch (Exception ex)
     {
         if (_selectedInstance is null) return;
 
-        var dlg = new TextInputDialog("����� ������� �����",
-            "�������� �������:", "��������: ��� ������") { Owner = this };
+        var dlg = new TextInputDialog("Новый профиль модов",
+            "Название профиля:", "Например: Для съёмок") { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
 
@@ -858,18 +790,18 @@ catch (Exception ex)
         if (name.Length == 0) return;
 
         var copy = MessageBox.Show(
-            "����������� ������� ���� � ����� �������?\n\n���� � ������� ������.",
-            "����� �������", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            "Скопировать текущие моды в новый профиль?\n\n«Нет» — создать пустой.",
+            "Новый профиль", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
         try
         {
             ModProfileService.Create(_selectedInstance, name, copy);
             RefreshModProfiles();
-            AppendLog($"������ ������� ����� �{name}�.");
+            AppendLog($"Создан профиль модов «{name}».");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -877,29 +809,29 @@ catch (Exception ex)
     {
         if (_selectedInstance is null || CbModProfile.SelectedItem is not string name) return;
 
-        if (MessageBox.Show($"������� ������� �{name}� �� ����� ��� ������?",
-                "�������� �������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+        if (MessageBox.Show($"Удалить профиль «{name}» со всеми его модами?",
+                "Удаление профиля", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         try
         {
             ModProfileService.Delete(_selectedInstance, name);
             RefreshModProfiles();
-            AppendLog($"������� �{name}� �����.");
+            AppendLog($"Профиль «{name}» удалён.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- �������� ����������� ----------
+    // ---------- Проверка целостности ----------
 
     private async void BtnCheckIntegrity_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null) return;
 
-        TxtInstHealth.Text = "���������";
+        TxtInstHealth.Text = "Проверяю…";
         TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
 
         try
@@ -912,10 +844,10 @@ catch (Exception ex)
             var sb = new StringBuilder();
             sb.AppendLine(report.Summary);
 
-            foreach (var p in report.Problems) sb.AppendLine("  ?  " + p);
+            foreach (var p in report.Problems) sb.AppendLine("  ✕  " + p);
             foreach (var w in report.Warnings) sb.AppendLine("  !  " + w);
             if (report.Problems.Count == 0)
-                foreach (var o in report.Ok.Take(4)) sb.AppendLine("  ?  " + o);
+                foreach (var o in report.Ok.Take(4)) sb.AppendLine("  ✓  " + o);
 
             TxtInstHealth.Text = sb.ToString().TrimEnd();
             TxtInstHealth.Foreground = (Brush)FindResource(
@@ -924,27 +856,27 @@ catch (Exception ex)
             if (report.Fixable.Count > 0)
             {
                 var r = MessageBox.Show(
-                    $"������� �������: {report.Problems.Count}.\n\n" +
-                    "������� ����������� �����, ����� ������� ������ �� ������?",
-                    "��������������", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    $"Найдено проблем: {report.Problems.Count}.\n\n" +
+                    "Удалить повреждённые файлы, чтобы лаунчер скачал их заново?",
+                    "Восстановление", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
                 if (r == MessageBoxResult.Yes)
                 {
                     var removed = IntegrityService.Repair(_selectedInstance, report);
-                    TxtInstHealth.Text = $"������� ����������� ���������: {removed}. " +
-                                         "������� ������ܻ � ����� ���������� ������.";
-                    AppendLog($"�������������� ������: ������� {removed} ���������.");
+                    TxtInstHealth.Text = $"Удалено повреждённых элементов: {removed}. " +
+                                         "Нажмите «ИГРАТЬ» — файлы загрузятся заново.";
+                    AppendLog($"Восстановление сборки: удалено {removed} элементов.");
                 }
             }
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "������ ��������: " + ex.Message;
+            TxtInstHealth.Text = "Ошибка проверки: " + ex.Message;
             TxtInstHealth.Foreground = (Brush)FindResource("Danger");
         }
     }
 
-    // ---------- ���������� ����� ----------
+    // ---------- Обновления модов ----------
 
     private async void BtnCheckModUpdates_Click(object sender, RoutedEventArgs e)
     {
@@ -953,7 +885,7 @@ catch (Exception ex)
         var inst = _selectedInstance;
         var modsDir = InstanceService.ModsDir(inst);
 
-        TxtInstHealth.Text = "�������� ���������� �����";
+        TxtInstHealth.Text = "Проверяю обновления модов…";
         TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
 
         try
@@ -966,54 +898,54 @@ catch (Exception ex)
 
             if (updates.Count == 0)
             {
-                TxtInstHealth.Text = "��� ���� ���������.";
+                TxtInstHealth.Text = "Все моды актуальны.";
                 TxtInstHealth.Foreground = (Brush)FindResource("Accent");
                 return;
             }
 
             var list = string.Join("\n", updates.Take(12).Select(u =>
-                $"  � {u.Project.Title}: {u.CurrentVersion} > {u.NewVersion}"));
+                $"  • {u.Project.Title}: {u.CurrentVersion} → {u.NewVersion}"));
 
-            if (updates.Count > 12) list += $"\n  � � ��� {updates.Count - 12}";
+            if (updates.Count > 12) list += $"\n  … и ещё {updates.Count - 12}";
 
             var r = MessageBox.Show(
-                $"�������� ����������: {updates.Count}\n\n{list}\n\n�������� ���?",
-                "���������� �����", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                $"Доступно обновлений: {updates.Count}\n\n{list}\n\nОбновить все?",
+                "Обновления модов", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
             if (r != MessageBoxResult.Yes)
             {
-                TxtInstHealth.Text = $"�������� ����������: {updates.Count}";
+                TxtInstHealth.Text = $"Доступно обновлений: {updates.Count}";
                 return;
             }
 
             var done = 0;
             foreach (var u in updates)
             {
-                TxtInstHealth.Text = $"�������� {u.Project.Title}� ({done + 1} �� {updates.Count})";
+                TxtInstHealth.Text = $"Обновляю {u.Project.Title}… ({done + 1} из {updates.Count})";
                 if (await _mods.ApplyUpdateAsync(u, modsDir, inst.McVersion, inst.Loader)) done++;
             }
 
-            TxtInstHealth.Text = $"��������� �����: {done} �� {updates.Count}.";
+            TxtInstHealth.Text = $"Обновлено модов: {done} из {updates.Count}.";
             TxtInstHealth.Foreground = (Brush)FindResource("Accent");
 
-            NotifyFinished("���� ���������", $"��������� {done} �����");
+            NotifyFinished("Моды обновлены", $"Обновлено {done} модов");
             RefreshInstanceStats();
             RefreshContent();
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "������: " + ex.Message;
+            TxtInstHealth.Text = "Ошибка: " + ex.Message;
             TxtInstHealth.Foreground = (Brush)FindResource("Danger");
         }
     }
 
-    // ---------- ��������� ----------
+    // ---------- Конфликты ----------
 
     private void BtnFindConflicts_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null) return;
 
-        TxtInstHealth.Text = "����� �����";
+        TxtInstHealth.Text = "Читаю моды…";
 
         try
         {
@@ -1021,7 +953,7 @@ catch (Exception ex)
 
             if (mods.Count == 0)
             {
-                TxtInstHealth.Text = "����� � ������ ���.";
+                TxtInstHealth.Text = "Модов в сборке нет.";
                 TxtInstHealth.Foreground = (Brush)FindResource("FgMuted");
                 return;
             }
@@ -1030,19 +962,19 @@ catch (Exception ex)
 
             if (conflicts.Count == 0)
             {
-                TxtInstHealth.Text = $"��������� �����: {mods.Count}. ���������� �� �������.";
+                TxtInstHealth.Text = $"Проверено модов: {mods.Count}. Конфликтов не найдено.";
                 TxtInstHealth.Foreground = (Brush)FindResource("Accent");
                 return;
             }
 
-            var sb = new StringBuilder($"��������� �����: {mods.Count}\n");
+            var sb = new StringBuilder($"Проверено модов: {mods.Count}\n");
 
             foreach (var c in conflicts)
             {
-                sb.AppendLine($"  {(c.IsError ? "?" : "!")}  {c.Title}");
+                sb.AppendLine($"  {(c.IsError ? "✕" : "!")}  {c.Title}");
                 sb.AppendLine($"      {c.Details}");
                 if (c.Files.Count > 0)
-                    sb.AppendLine($"      �����: {string.Join(", ", c.Files.Take(4))}");
+                    sb.AppendLine($"      файлы: {string.Join(", ", c.Files.Take(4))}");
             }
 
             TxtInstHealth.Text = sb.ToString().TrimEnd();
@@ -1051,11 +983,11 @@ catch (Exception ex)
         }
         catch (Exception ex)
         {
-            TxtInstHealth.Text = "������: " + ex.Message;
+            TxtInstHealth.Text = "Ошибка: " + ex.Message;
         }
     }
 
-    // ---------- ���������� ----------
+    // ---------- Статистика ----------
 
     private void RefreshStatistics()
     {
@@ -1063,14 +995,14 @@ catch (Exception ex)
 
         var inst = _selectedInstance;
 
-        TxtStatTotal.Text = inst.TotalPlaySeconds > 0 ? inst.PlayTimeDisplay : "�";
+        TxtStatTotal.Text = inst.TotalPlaySeconds > 0 ? inst.PlayTimeDisplay : "—";
         TxtStatSessions.Text = inst.Sessions.Count.ToString();
 
         TxtStatAvg.Text = inst.Sessions.Count > 0
             ? FormatMinutes((long)inst.Sessions.Average(s => s.Seconds))
-            : "�";
+            : "—";
 
-        // ������ �� 14 ����
+        // График за 14 дней
         var today = DateTime.Today;
         var days = Enumerable.Range(0, 14).Select(i => today.AddDays(-13 + i)).ToList();
 
@@ -1095,19 +1027,19 @@ catch (Exception ex)
                     : (Color)ColorConverter.ConvertFromString("#2A2F3A")),
                 Tip = x.Seconds > 0
                     ? $"{x.Day:dd.MM}: {FormatMinutes(x.Seconds)}"
-                    : $"{x.Day:dd.MM}: �� ������"
+                    : $"{x.Day:dd.MM}: не играли"
             };
         }).ToList();
     }
 
     private static string FormatMinutes(long seconds)
     {
-        if (seconds < 60) return $"{seconds} �";
+        if (seconds < 60) return $"{seconds} с";
         var ts = TimeSpan.FromSeconds(seconds);
-        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours} � {ts.Minutes} ���" : $"{ts.Minutes} ���";
+        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours} ч {ts.Minutes} мин" : $"{ts.Minutes} мин";
     }
 
-    // ---------- JVM-������� ----------
+    // ---------- JVM-пресеты ----------
 
     private void RefreshJvmPresets()
     {
@@ -1159,10 +1091,10 @@ catch (Exception ex)
         InstanceService.SaveAll(_instances);
         UpdateJvmPresetInfo();
 
-        AppendLog($"������ �{_selectedInstance.Name}�: ������ JVM �{name}�.");
+        AppendLog($"Сборка «{_selectedInstance.Name}»: пресет JVM «{name}».");
     }
 
-    // ---------- ������ ������ ----------
+    // ---------- Иконка сборки ----------
 
     private void RefreshInstanceIcon()
     {
@@ -1188,7 +1120,7 @@ catch (Exception ex)
                 InstIconDot.Visibility = Visibility.Collapsed;
                 return;
             }
-            catch (Exception ex) { Log.Warn("������ ������: " + ex.Message); }
+            catch (Exception ex) { Log.Warn("Иконка сборки: " + ex.Message); }
         }
 
         ImgInstIcon.Source = null;
@@ -1201,15 +1133,15 @@ catch (Exception ex)
 
         var dlg = new OpenFileDialog
         {
-            Title = "������ ������",
-            Filter = "�����������|*.png;*.jpg;*.jpeg;*.bmp;*.ico|��� �����|*.*"
+            Title = "Иконка сборки",
+            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.ico|Все файлы|*.*"
         };
 
         if (dlg.ShowDialog(this) != true) return;
 
         try
         {
-            // �������� � ����� ������, ����� ������ �� ���������� ��� ��������
+            // Копируем в папку сборки, чтобы иконка не потерялась при переносе
             var dst = Path.Combine(InstanceService.InstanceDir(_selectedInstance),
                 "icon" + Path.GetExtension(dlg.FileName));
 
@@ -1220,12 +1152,12 @@ catch (Exception ex)
 
             RefreshInstanceIcon();
             RefreshInstanceLists();
-            AppendLog($"������ ������ �{_selectedInstance.Name}� ���������.");
+            AppendLog($"Иконка сборки «{_selectedInstance.Name}» обновлена.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� ���������� ������: " + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось установить иконку: " + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1269,15 +1201,15 @@ catch (Exception ex)
 
         var dlg = new OpenFileDialog
         {
-            Title = "java.exe ��� ���� ������",
-            Filter = "java.exe|java.exe;javaw.exe|����������� ����� (*.exe)|*.exe"
+            Title = "java.exe для этой сборки",
+            Filter = "java.exe|java.exe;javaw.exe|Исполняемые файлы (*.exe)|*.exe"
         };
         if (dlg.ShowDialog(this) != true) return;
 
         var probe = JavaService.Probe(dlg.FileName, "instance");
         if (probe is null)
         {
-            MessageBox.Show("�� ������� ���������� ������ Java �� ����� ����.",
+            MessageBox.Show("Не удалось определить версию Java по этому пути.",
                 "Java", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -1285,7 +1217,7 @@ catch (Exception ex)
         _selectedInstance.JavaPath = dlg.FileName;
         TxtInstJava.Text = dlg.FileName;
         InstanceService.SaveAll(_instances);
-        AppendLog($"��� �{_selectedInstance.Name}� ������� {probe}");
+        AppendLog($"Для «{_selectedInstance.Name}» выбрана {probe}");
     }
 
     private void BtnInstSetRu_Click(object sender, RoutedEventArgs e)
@@ -1296,9 +1228,9 @@ catch (Exception ex)
             InstanceService.InstanceDir(_selectedInstance), _selectedInstance.McVersion, "ru");
 
         MessageBox.Show(ok
-                ? "������� ���� ������� � options.txt ���� ������."
-                : "�� ������� �������� ���� � ����������� � �������.",
-            "���� ����", MessageBoxButton.OK,
+                ? "Русский язык записан в options.txt этой сборки."
+                : "Не удалось изменить язык — подробности в консоли.",
+            "Язык игры", MessageBoxButton.OK,
             ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
@@ -1310,7 +1242,7 @@ catch (Exception ex)
 
         var copy = new GameInstance
         {
-            Name = src.Name + " (�����)",
+            Name = src.Name + " (копия)",
             McVersion = src.McVersion,
             Loader = src.Loader,
             LoaderVersion = src.LoaderVersion,
@@ -1328,9 +1260,9 @@ catch (Exception ex)
         InstanceService.EnsureFolders(copy);
 
         var r = MessageBox.Show(
-            "����������� ����, ���������� � ������� � ����� ������?\n\n" +
-            "���� � ������� ������ ������ � ���� �� �����������.",
-            "������������", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            "Скопировать моды, ресурспаки и шейдеры в новую сборку?\n\n" +
+            "«Нет» — создать пустую сборку с теми же настройками.",
+            "Дублирование", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -1347,7 +1279,7 @@ catch (Exception ex)
             }
             catch (Exception ex)
             {
-                AppendLog("������ ����������� �����������: " + ex.Message);
+                AppendLog("Ошибка копирования содержимого: " + ex.Message);
             }
         }
 
@@ -1356,7 +1288,7 @@ catch (Exception ex)
         RefreshInstanceLists();
         CbInstances.SelectedItem = _instances.FirstOrDefault(i => i.Id == copy.Id);
 
-        AppendLog($"������� ����� ������: �{copy.Name}�");
+        AppendLog($"Создана копия сборки: «{copy.Name}»");
     }
 
     private void BtnResetInstance_Click(object sender, RoutedEventArgs e)
@@ -1364,10 +1296,10 @@ catch (Exception ex)
         if (_selectedInstance is null) return;
 
         if (MessageBox.Show(
-                "�������� �������������� ��������� ���� ������?\n\n" +
-                "������, ������ ����, Java � ��������� �������� � ����� ���������.\n" +
-                "���� � ���� �� ����������.",
-                "����� �������� ������", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                "Сбросить индивидуальные настройки этой сборки?\n\n" +
+                "Память, размер окна, Java и аргументы вернутся к общим значениям.\n" +
+                "Моды и миры не пострадают.",
+                "Сброс настроек сборки", MessageBoxButton.YesNo, MessageBoxImage.Question)
             != MessageBoxResult.Yes) return;
 
         var inst = _selectedInstance;
@@ -1380,7 +1312,7 @@ catch (Exception ex)
 
         InstanceService.SaveAll(_instances);
         FillInstanceSettings(inst);
-        AppendLog($"��������� ������ �{inst.Name}� ��������.");
+        AppendLog($"Настройки сборки «{inst.Name}» сброшены.");
     }
     private void RefreshInstanceStats()
     {
@@ -1388,16 +1320,16 @@ catch (Exception ex)
 
         var st = InstanceService.GetStats(_selectedInstance);
 
-        TxtCountMods.Text = Plural(st.Mods, "����", "�����", "������");
-        TxtCountRp.Text = Plural(st.ResourcePacks, "���", "����", "�����");
-        TxtCountShaders.Text = Plural(st.ShaderPacks, "���", "����", "�����");
-        TxtCountWorlds.Text = Plural(st.Worlds, "���", "����", "�����");
+        TxtCountMods.Text = Plural(st.Mods, "файл", "файла", "файлов");
+        TxtCountRp.Text = Plural(st.ResourcePacks, "пак", "пака", "паков");
+        TxtCountShaders.Text = Plural(st.ShaderPacks, "пак", "пака", "паков");
+        TxtCountWorlds.Text = Plural(st.Worlds, "мир", "мира", "миров");
         TxtInstSize.Text = st.SizeDisplay;
 
-        TxtQuickMods.Text = st.Mods > 0 ? $"���� ({st.Mods})" : "����";
-        TxtQuickRp.Text = st.ResourcePacks > 0 ? $"���������� ({st.ResourcePacks})" : "����������";
-        TxtQuickShaders.Text = st.ShaderPacks > 0 ? $"������� ({st.ShaderPacks})" : "�������";
-        TxtQuickShots.Text = st.Screenshots > 0 ? $"��������� ({st.Screenshots})" : "���������";
+        TxtQuickMods.Text = st.Mods > 0 ? $"Моды ({st.Mods})" : "Моды";
+        TxtQuickRp.Text = st.ResourcePacks > 0 ? $"Ресурспаки ({st.ResourcePacks})" : "Ресурспаки";
+        TxtQuickShaders.Text = st.ShaderPacks > 0 ? $"Шейдеры ({st.ShaderPacks})" : "Шейдеры";
+        TxtQuickShots.Text = st.Screenshots > 0 ? $"Скриншоты ({st.Screenshots})" : "Скриншоты";
     }
 
     private static string Plural(int n, string one, string few, string many)
@@ -1433,14 +1365,14 @@ catch (Exception ex)
                 var bmp = new BitmapImage();
                 bmp.BeginInit();
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.DecodePixelWidth = 264;      // �������� ������ �� ������
+                bmp.DecodePixelWidth = 264;      // экономим память на превью
                 bmp.UriSource = new Uri(f.FullName);
                 bmp.EndInit();
                 bmp.Freeze();
 
                 items.Add(new { Thumb = bmp, Path = f.FullName, Name = f.Name });
             }
-            catch { /* ����� ���� ���������� */ }
+            catch { /* битый файл пропускаем */ }
         }
 
         ItemsScreenshots.ItemsSource = items;
@@ -1451,7 +1383,7 @@ catch (Exception ex)
         if (sender is not FrameworkElement fe || fe.Tag is not string path) return;
 
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-        catch (Exception ex) { AppendLog("�� ������� ������� ��������: " + ex.Message); }
+        catch (Exception ex) { AppendLog("Не удалось открыть скриншот: " + ex.Message); }
     }
 
     private void ChkSnapshots_Changed(object sender, RoutedEventArgs e)
@@ -1460,16 +1392,7 @@ catch (Exception ex)
         _settings.ShowSnapshots = ChkSnapshots.IsChecked == true;
     }
 
-    private void ChkHideStreams_Changed(object sender, RoutedEventArgs e)
-    {
-        if (!IsLoaded) return;
-        _settings.HideStreams = ChkHideStreams.IsChecked == true;
-        NavStreams.Visibility = _settings.HideStreams ? Visibility.Collapsed : Visibility.Visible;
-        if (_settings.HideStreams) _twitchStream.Stop();
-        else _twitchStream.Start(_twitchAccount);
-    }
-
-    // ---------- �������� / �������� ----------
+    // ---------- Создание / удаление ----------
 
     private void BtnNewInstance_Click(object sender, RoutedEventArgs e)
     {
@@ -1483,40 +1406,40 @@ catch (Exception ex)
 
         _settings.LastInstanceId = inst.Id;
         RefreshInstanceLists();
-        AppendLog($"������� ������ �{inst.Name}� ({inst.McVersion}, {inst.LoaderDisplay}).");
+        AppendLog($"Создана сборка «{inst.Name}» ({inst.McVersion}, {inst.LoaderDisplay}).");
 
         NavInstances.IsChecked = true;
 
-        // ���� ��������� �� ������� � ������������� ��� ����������
+        // Если создавали из модпака — распаковываем его содержимое
         if (!string.IsNullOrEmpty(dlg.ModpackPath))
             _ = InstallModpackAsync(inst, dlg.ModpackPath!);
     }
 
-    /// <summary>������������� ������ � ������ ��� ��������� ������.</summary>
+    /// <summary>Распаковывает модпак в только что созданную сборку.</summary>
     private async Task InstallModpackAsync(GameInstance inst, string packPath)
     {
         SetBusy(true);
 
         try
         {
-            SetStage("������������ ������...");
+            SetStage("Устанавливаю модпак...");
             var info = await _modpacks.InstallAsync(packPath, inst);
 
             RefreshInstanceStats();
             RefreshContent();
 
             MessageBox.Show(
-                $"������ �{info.Name}� ���������� � ������ �{inst.Name}�.\n\n" +
-                $"������: {info.McVersion} {info.Loader.Display()}\n" +
-                $"������: {info.FileCount}\n\n" +
-                "��������� ����������� ��� ������ �������.",
-                "������ �����", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"Модпак «{info.Name}» установлен в сборку «{inst.Name}».\n\n" +
+                $"Версия: {info.McVersion} {info.Loader.Display()}\n" +
+                $"Файлов: {info.FileCount}\n\n" +
+                "Загрузчик установится при первом запуске.",
+                "Модпак готов", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            Log.Error("��������� �������", ex);
-            MessageBox.Show("�� ������� ���������� ������:\n\n" + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.Error("Установка модпака", ex);
+            MessageBox.Show("Не удалось установить модпак:\n\n" + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
@@ -1530,17 +1453,17 @@ catch (Exception ex)
 
         if (_sessions.IsInstanceRunning(_selectedInstance.Id))
         {
-            MessageBox.Show("������ ������� ������, ���� ��� ��������. ������� ���������� ����.",
-                "������ ������", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Нельзя удалить сборку, пока она запущена. Сначала остановите игру.",
+                "Сборка занята", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var inst = _selectedInstance;
         var r = MessageBox.Show(
-            $"������� ������ �{inst.Name}�?\n\n" +
-            "��� � ������� ������ � ������, ������ � �����������.\n" +
-            "���� � ������ �� ������, ����� ��������.",
-            "�������� ������", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+            $"Удалить сборку «{inst.Name}»?\n\n" +
+            "«Да» — удалить вместе с модами, мирами и скриншотами.\n" +
+            "«Нет» — убрать из списка, файлы оставить.",
+            "Удаление сборки", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -1552,21 +1475,21 @@ catch (Exception ex)
             InstanceService.SaveAll(_instances);
             _selectedInstance = null;
             RefreshInstanceLists();
-            AppendLog($"������ �{inst.Name}� �������.");
+            AppendLog($"Сборка «{inst.Name}» удалена.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "������ ��������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Ошибка удаления", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- ����� ----------
+    // ---------- Папки ----------
 
     private void OpenInstanceFolder(Func<GameInstance, string> selector)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1578,7 +1501,7 @@ catch (Exception ex)
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1596,7 +1519,7 @@ catch (Exception ex)
     private void QuickScreenshots_Click(object s, RoutedEventArgs e) => OpenInstanceFolder(InstanceService.ScreenshotsDir);
 
     // =====================================================================
-    //  �������
+    //  СЕРВЕРЫ
     // =====================================================================
 
     private async Task RefreshServersAsync()
@@ -1614,7 +1537,7 @@ catch (Exception ex)
         }
         catch (Exception ex)
         {
-            Log.Warn("�� ������� ��������� ����������� �������: " + ex.Message);
+            Log.Warn("Не удалось загрузить спонсорские серверы: " + ex.Message);
         }
 
         var views = servers.Select(s => CreateServerView(s, null)).ToList();
@@ -1665,22 +1588,22 @@ catch (Exception ex)
             PlaceholderVisibility = favicon is null ? Visibility.Visible : Visibility.Collapsed,
             FeaturedVisibility = srv.Featured ? Visibility.Visible : Visibility.Collapsed,
 
-            StatusText = checking ? "���������" : online ? "������" : "������",
+            StatusText = checking ? "проверка…" : online ? "онлайн" : "офлайн",
             StatusColor = new SolidColorBrush(checking
                 ? (Color)ColorConverter.ConvertFromString("#8B93A3")
                 : online ? ThemeService.CurrentAccent : (Color)ColorConverter.ConvertFromString("#F87171")),
             StatusBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
                 checking ? "#22262E" : online ? "#14301F" : "#2A1A1D")),
 
-            Players = online ? status!.OnlinePlayers.ToString() : "�",
-            Motd = checking ? "������� ������ �������..."
+            Players = online ? status!.OnlinePlayers.ToString() : "—",
+            Motd = checking ? "Получаю данные сервера..."
                 : online ? (string.IsNullOrWhiteSpace(status!.Motd) ? srv.Description : status.Motd)
-                : (status?.Error ?? "������ ����������"),
+                : (status?.Error ?? "Сервер недоступен"),
 
             VersionInfo = online && !string.IsNullOrEmpty(status!.VersionName)
                 ? status.VersionName
-                : "������ " + srv.RequiredVersion,
-            PingInfo = online ? $"{status!.PingMs} ��" : "",
+                : "версия " + srv.RequiredVersion,
+            PingInfo = online ? $"{status!.PingMs} мс" : "",
 
             RequiredVersion = srv.RequiredVersion,
             Loader = srv.Loader
@@ -1701,12 +1624,12 @@ catch (Exception ex)
         try
         {
             Clipboard.SetText(addr);
-            AppendLog($"����� {addr} ���������� � ����� ������.");
+            AppendLog($"Адрес {addr} скопирован в буфер обмена.");
         }
-        catch (Exception ex) { AppendLog("�� ������� �����������: " + ex.Message); }
+        catch (Exception ex) { AppendLog("Не удалось скопировать: " + ex.Message); }
     }
 
-    /// <summary>�������� �� �������� �������: ��������� ������ ������ ������ � ��������� � ������������.</summary>
+    /// <summary>«Играть» на карточке сервера: подбирает сборку нужной версии и запускает с подключением.</summary>
     private async void ServerPlay_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not string address) return;
@@ -1722,9 +1645,9 @@ catch (Exception ex)
         if (inst is null)
         {
             var r = MessageBox.Show(
-                $"��� ������� {srv.Name} ����� ������ {srv.RequiredVersion}, " +
-                "�� ���������� ������ ���.\n\n������� � ������?",
-                "����� ������", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                $"Для сервера {srv.Name} нужна версия {srv.RequiredVersion}, " +
+                "но подходящей сборки нет.\n\nСоздать её сейчас?",
+                "Нужна сборка", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (r != MessageBoxResult.Yes) return;
 
@@ -1757,19 +1680,19 @@ catch (Exception ex)
         list.Add(dlg.Result);
         ServerCatalog.SaveUserServers(list);
 
-        AppendLog($"�������� ������ {dlg.Result.Name} ({dlg.Result.Address}).");
+        AppendLog($"Добавлен сервер {dlg.Result.Name} ({dlg.Result.Address}).");
         _ = RefreshServersAsync();
     }
 
     // =====================================================================
-    //  ������ ����
+    //  ЗАПУСК ИГРЫ
     // =====================================================================
 
     private async void BtnPlay_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ��� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите или создайте сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             NavInstances.IsChecked = true;
             return;
@@ -1785,28 +1708,28 @@ catch (Exception ex)
         if (_account is null)
         {
             MessageBox.Show(
-                "������� ������� � ������� �� ������� ��������.\n\n" +
-                "�������� ���� ����� Microsoft � �������-�������.",
-                "��������� ����", MessageBoxButton.OK, MessageBoxImage.Information);
+                "Сначала войдите в аккаунт на вкладке «Аккаунт».\n\n" +
+                "Доступны вход через Microsoft и оффлайн-профиль.",
+                "Требуется вход", MessageBoxButton.OK, MessageBoxImage.Information);
             NavAccount.IsChecked = true;
             return;
         }
 
-        // ������ �� ���������� �������
+        // Защита от повторного запуска
         if (!_settings.AllowMultipleInstances && _sessions.AnyRunning)
         {
             var running = _sessions.Sessions.First(s => s.IsRunning);
             MessageBox.Show(
-                $"���� ��� ��������: �{running.InstanceName}�.\n\n" +
-                "���������� � ������� ����������ܻ ���� ���������\n" +
-                "��������� ����� � ����������.",
-                "���� ��� ��������", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"Игра уже запущена: «{running.InstanceName}».\n\n" +
+                "Остановите её кнопкой «ОСТАНОВИТЬ» либо разрешите\n" +
+                "несколько копий в настройках.",
+                "Игра уже запущена", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_sessions.IsInstanceRunning(inst.Id))
         {
-            MessageBox.Show($"������ �{inst.Name}� ��� ��������.", "��� ��������",
+            MessageBox.Show($"Сборка «{inst.Name}» уже запущена.", "Уже запущена",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -1819,17 +1742,17 @@ catch (Exception ex)
 
         try
         {
-            // 1. �����
+            // 1. Токен
             if (!_account.IsOffline && _account.IsExpired &&
                 !string.IsNullOrEmpty(_account.MicrosoftRefreshToken))
             {
-                SetStage("�������� ������ Microsoft...");
+                SetStage("Обновляю сессию Microsoft...");
                 _account = await _auth.RefreshAsync(_account.MicrosoftRefreshToken!, ct);
                 AccountStorage.Save(_account);
                 SetAccount(_account, refreshSkin: false);
             }
 
-            // 2. ���������: ����� ���� ������������� ��� ���� ������
+            // 2. Хранилище: общее либо изолированное для этой сборки
             var paths = GamePaths.ForInstance(inst);
             paths.EnsureAll();
 
@@ -1840,18 +1763,18 @@ catch (Exception ex)
                 ? Path.Combine(InstanceService.InstanceDir(inst), ".minecraft")
                 : LauncherPaths.Root;
 
-            if (paths.IsIsolated) AppendLog($"������ �{inst.Name}� �����������: ����� � � �����.");
+            if (paths.IsIsolated) AppendLog($"Сборка «{inst.Name}» изолирована: файлы в её папке.");
 
-            // 3. ������� ������
-            SetStage($"����� �������� ������ {inst.McVersion}...");
+            // 3. Базовая версия
+            SetStage($"Читаю описание версии {inst.McVersion}...");
             var manifest = _manifest ?? await _versions.GetManifestAsync(ct);
             var mv = manifest.Versions.FirstOrDefault(v => v.Id == inst.McVersion)
-                     ?? throw new InvalidOperationException($"������ {inst.McVersion} �� ������� � ���������.");
+                     ?? throw new InvalidOperationException($"Версия {inst.McVersion} не найдена в манифесте.");
             var baseDetail = await _versions.GetVersionDetailAsync(mv, ct);
 
             // 3. Java
             var requiredJava = baseDetail.JavaVersion?.MajorVersion ?? JavaService.RequiredJavaFor(inst.McVersion);
-            SetStage($"�������� Java {requiredJava}...");
+            SetStage($"Проверяю Java {requiredJava}...");
 
             JavaInstallation java;
             var javaOverride = !string.IsNullOrWhiteSpace(inst.JavaPath) ? inst.JavaPath : _settings.CustomJavaPath;
@@ -1859,9 +1782,9 @@ catch (Exception ex)
             if (!string.IsNullOrWhiteSpace(javaOverride) && File.Exists(javaOverride))
             {
                 java = JavaService.Probe(javaOverride, "custom")
-                       ?? throw new InvalidOperationException("��������� java.exe �� ��������.");
+                       ?? throw new InvalidOperationException("Указанный java.exe не отвечает.");
                 if (java.MajorVersion < requiredJava)
-                    AppendLog($"��������: ������� Java {java.MajorVersion}, ����� {requiredJava}.");
+                    AppendLog($"ВНИМАНИЕ: выбрана Java {java.MajorVersion}, нужна {requiredJava}.");
             }
             else
             {
@@ -1870,10 +1793,10 @@ catch (Exception ex)
 
             Dispatcher.Invoke(() => TxtBadgeJava.Text = $"Java {java.MajorVersion}");
 
-            // 4. ��������� ����� (����� � ����������)
+            // 4. Ванильные файлы (нужны и модлоадеру)
             await Task.Run(() => _downloads.InstallVersionAsync(baseDetail, ct), ct);
 
-            // 5. ���������
+            // 5. Модлоадер
             var launchId = inst.EffectiveVersionId;
 
             if (inst.Loader != LoaderKind.Vanilla)
@@ -1883,7 +1806,7 @@ catch (Exception ex)
 
                 if (!alreadyInstalled)
                 {
-                    SetStage($"������������ {inst.Loader.Display()} {inst.LoaderVersion}...");
+                    SetStage($"Устанавливаю {inst.Loader.Display()} {inst.LoaderVersion}...");
                     launchId = await _loaders.InstallAsync(
                         inst.Loader, inst.McVersion, inst.LoaderVersion!, java, ct);
 
@@ -1896,24 +1819,24 @@ catch (Exception ex)
                 }
             }
 
-            // 6. �������� ������� (�� �������� inheritsFrom) � ��� �����
-            SetStage("������� ����� �������...");
+            // 6. Итоговый профиль (со слиянием inheritsFrom) и его файлы
+            SetStage("Готовлю файлы запуска...");
             var finalDetail = await _versions.ResolveAsync(launchId, ct);
             var install = await Task.Run(() => _downloads.InstallVersionAsync(finalDetail, ct), ct);
 
-            NotifyFinished("�������� ���������", $"�{inst.Name}� ������ � �������");
+            NotifyFinished("Загрузка завершена", $"«{inst.Name}» готова к запуску");
 
-            // 7. ������
-            SetStage("�������� Minecraft...");
+            // 7. Запуск
+            SetStage("Запускаю Minecraft...");
             InstanceService.EnsureFolders(inst);
 
-            // ������� ���� �� ������� � ��� � TLegacy. ������������ options.txt �� �������.
+            // Русский язык из коробки — как в TLegacy. Существующий options.txt не трогаем.
             if (_settings.AutoSetGameLanguage)
             {
                 var created = GameOptionsService.EnsureLanguage(
                     InstanceService.InstanceDir(inst), inst.McVersion, _settings.GameLanguage);
                 if (created)
-                    AppendLog($"���� ���� ����������: " +
+                    AppendLog($"Язык игры установлен: " +
                               GameOptionsService.LanguageCodeFor(inst.McVersion, _settings.GameLanguage));
             }
 
@@ -1949,9 +1872,9 @@ catch (Exception ex)
             inst.LastPlayed = DateTimeOffset.Now;
             InstanceService.SaveAll(_instances);
 
-            AppendLog($"Minecraft ������� (PID {proc.Id}), ������ �{inst.Name}�.");
-            if (serverAddress is not null) AppendLog($"��������������� � ������� {serverAddress}.");
-            SetStage("���� ��������");
+            AppendLog($"Minecraft запущен (PID {proc.Id}), сборка «{inst.Name}».");
+            if (serverAddress is not null) AppendLog($"Автоподключение к серверу {serverAddress}.");
+            SetStage("Игра запущена");
 
             if (_settings.CloseLauncherOnStart)
             {
@@ -1962,28 +1885,28 @@ catch (Exception ex)
 
             if (_settings.MinimizeOnLaunch) WindowState = WindowState.Minimized;
 
-            // ����� ���������� �����
+            // Ловим мгновенные краши
             var exitedFast = await Task.Run(() => proc.WaitForExit(9000), ct);
             if (exitedFast && proc.ExitCode != 0)
             {
                 WindowState = WindowState.Normal;
                 Activate();
-                AppendLog($"���� ����������� ����� � ����� {proc.ExitCode}.");
+                AppendLog($"Игра завершилась сразу с кодом {proc.ExitCode}.");
                 MessageBox.Show(
-                    $"Minecraft ���������� � ����� {proc.ExitCode}.\n�������� ��������� ��� �������.",
-                    "���� �� �����������", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    $"Minecraft завершился с кодом {proc.ExitCode}.\nОткройте «Консоль» для деталей.",
+                    "Игра не запустилась", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (OperationCanceledException)
         {
-            AppendLog("�������� ��������.");
-            SetStage("��������");
+            AppendLog("Операция отменена.");
+            SetStage("Отменено");
         }
         catch (Exception ex)
         {
-            Log.Error("������ �������", ex);
-            MessageBox.Show(ex.Message, "������ �������", MessageBoxButton.OK, MessageBoxImage.Error);
-            SetStage("������");
+            Log.Error("Ошибка запуска", ex);
+            MessageBox.Show(ex.Message, "Ошибка запуска", MessageBoxButton.OK, MessageBoxImage.Error);
+            SetStage("Ошибка");
         }
         finally
         {
@@ -2001,10 +1924,10 @@ catch (Exception ex)
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
         _cts?.Cancel();
-        SetStage("������...");
+        SetStage("Отмена...");
     }
 
-    // ---------- ��������� ----------
+    // ---------- Остановка ----------
 
     private async void BtnStopGame_Click(object sender, RoutedEventArgs e)
     {
@@ -2016,26 +1939,26 @@ catch (Exception ex)
         {
             var names = string.Join(", ", running.Select(s => s.InstanceName));
             var r = MessageBox.Show(
-                $"������� ����: {names}?\n\n������������� �������� ����� ���� �������.",
-                "���������� ����", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                $"Закрыть игру: {names}?\n\nНесохранённый прогресс может быть потерян.",
+                "Остановить игру", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r != MessageBoxResult.Yes) return;
         }
 
         BtnStopGame.IsEnabled = false;
-        BtnStopGame.Content = "�����������ޅ";
+        BtnStopGame.Content = "ОСТАНАВЛИВАЮ…";
 
         try
         {
             foreach (var s in running)
             {
-                AppendLog($"������������ �{s.InstanceName}� (PID {s.Pid})...");
+                AppendLog($"Останавливаю «{s.InstanceName}» (PID {s.Pid})...");
                 await _sessions.StopAsync(s);
             }
         }
         finally
         {
             BtnStopGame.IsEnabled = true;
-            BtnStopGame.Content = "����������";
+            BtnStopGame.Content = "ОСТАНОВИТЬ";
             UpdateRunStateUi();
         }
     }
@@ -2053,14 +1976,14 @@ catch (Exception ex)
                 InstanceService.SaveAll(_instances);
                 if (ReferenceEquals(inst, _selectedInstance))
                 {
-                    TxtInstPlaytime.Text = "� ����: " + inst.PlayTimeDisplay;
+                    TxtInstPlaytime.Text = "В игре: " + inst.PlayTimeDisplay;
                     RefreshInstanceStats();
                     LoadScreenshots();
                 }
             }
 
-            AppendLog($"--- �{session.InstanceName}� ����������� (��� {code}), " +
-                      $"����� ������ {session.UptimeDisplay} ---");
+            AppendLog($"--- «{session.InstanceName}» завершилась (код {code}), " +
+                      $"время сессии {session.UptimeDisplay} ---");
 
             if (WindowState == WindowState.Minimized && !_sessions.AnyRunning)
                 WindowState = WindowState.Normal;
@@ -2069,7 +1992,7 @@ catch (Exception ex)
         });
     }
 
-    /// <summary>����������� ������ ������ܻ / ����������ܻ � ����� � ���������.</summary>
+    /// <summary>Переключает кнопки «ИГРАТЬ» / «ОСТАНОВИТЬ» и бейдж в заголовке.</summary>
     private void UpdateRunStateUi()
     {
         _sessions.Prune();
@@ -2078,17 +2001,17 @@ catch (Exception ex)
         var thisRunning = _selectedInstance is not null &&
                           _sessions.IsInstanceRunning(_selectedInstance.Id);
 
-        // ������ �������� ��������, ����� ���� ��� � ������������ ��������
+        // Кнопка «Играть» прячется, когда игра идёт и мультизапуск запрещён
         var hidePlay = !_busy && anyRunning && (!_settings.AllowMultipleInstances || thisRunning);
 
         BtnPlay.Visibility = hidePlay ? Visibility.Collapsed : Visibility.Visible;
         BtnStopGame.Visibility = anyRunning ? Visibility.Visible : Visibility.Collapsed;
 
         BtnPlay.IsEnabled = !_busy;
-        BtnPlay.Content = _busy ? "�����������"
+        BtnPlay.Content = _busy ? "ПОДГОТОВКА…"
             : _selectedInstance is not null && !File.Exists(GamePaths.ForInstance(_selectedInstance).VersionJar(_selectedInstance.McVersion))
-                ? "���������� � ������"
-                : "������";
+                ? "УСТАНОВИТЬ И ИГРАТЬ"
+                : "ИГРАТЬ";
 
         RunningBadge.Visibility = anyRunning ? Visibility.Visible : Visibility.Collapsed;
         BtnDeleteInstance.IsEnabled = !thisRunning;
@@ -2102,14 +2025,14 @@ catch (Exception ex)
         if (running.Count == 0) return;
 
         TxtRunningBadge.Text = running.Count == 1
-            ? $"{running[0].InstanceName} � {running[0].UptimeDisplay}"
-            : $"�������� ���: {running.Count}";
+            ? $"{running[0].InstanceName} · {running[0].UptimeDisplay}"
+            : $"Запущено игр: {running.Count}";
 
-        BtnStopGame.Content = running.Count > 1 ? $"���������� ({running.Count})" : "����������";
+        BtnStopGame.Content = running.Count > 1 ? $"ОСТАНОВИТЬ ({running.Count})" : "ОСТАНОВИТЬ";
     }
 
     // =====================================================================
-    //  �������
+    //  АККАУНТ
     // =====================================================================
 
     private void TxtOfflineName_TextChanged(object sender, TextChangedEventArgs e)
@@ -2119,14 +2042,14 @@ catch (Exception ex)
         var name = TxtOfflineName.Text;
         if (string.IsNullOrWhiteSpace(name))
         {
-            TxtOfflineHint.Text = "������� ������� (3-16 ��������).";
+            TxtOfflineHint.Text = "Введите никнейм (3-16 символов).";
             TxtOfflineHint.Foreground = (Brush)FindResource("FgMuted");
             return;
         }
 
         if (OfflineAccountService.TryValidateName(name, out var error))
         {
-            TxtOfflineHint.Text = "UUID �����: " + Dashed(OfflineAccountService.GenerateOfflineUuid(name.Trim()));
+            TxtOfflineHint.Text = "UUID будет: " + Dashed(OfflineAccountService.GenerateOfflineUuid(name.Trim()));
             TxtOfflineHint.Foreground = (Brush)FindResource("Accent");
         }
         else
@@ -2159,9 +2082,9 @@ catch (Exception ex)
             AccountStorage.Save(acc);
             SetAccount(acc, refreshSkin: true);
 
-            TxtOfflineHint.Text = "�������-������� ������.";
+            TxtOfflineHint.Text = "Оффлайн-профиль создан.";
             TxtOfflineHint.Foreground = (Brush)FindResource("Accent");
-            AppendLog($"������ �������-�������: {acc.Username} ({acc.DashedUuid})");
+            AppendLog($"Создан оффлайн-аккаунт: {acc.Username} ({acc.DashedUuid})");
         }
         catch (Exception ex)
         {
@@ -2177,13 +2100,14 @@ catch (Exception ex)
             : $"{u[..8]}-{u.Substring(8, 4)}-{u.Substring(12, 4)}-{u.Substring(16, 4)}-{u.Substring(20)}";
     }
 
-private void BtnLogout_Click(object sender, RoutedEventArgs e)
+    private void BtnLogout_Click(object sender, RoutedEventArgs e)
     {
         AccountStorage.Clear();
         _account = null;
 
         TxtAccName.Text = "—";
         TxtAccUuid.Text = "";
+        TxtAuthState.Text = "Вы не вошли в аккаунт.";
         TxtSideName.Text = "Не выполнен вход";
         TxtSideStatus.Text = "Оффлайн";
         ImgSkinPreview.Source = null;
@@ -2191,6 +2115,7 @@ private void BtnLogout_Click(object sender, RoutedEventArgs e)
         ImgAvatar.Source = null;
         TxtSkinPlaceholder.Visibility = Visibility.Visible;
 
+        BtnLogout.IsEnabled = false;
         BtnUploadSkin.IsEnabled = false;
         BtnResetSkin.IsEnabled = false;
 
@@ -2199,154 +2124,10 @@ private void BtnLogout_Click(object sender, RoutedEventArgs e)
         TxtOfflineHint.Foreground = (Brush)FindResource("FgMuted");
         TxtSkinStatus.Text = "";
 
-        AppendLog("�������� ����� �� ��������.");
+        AppendLog("Выполнен выход из аккаунта.");
     }
 
-    private async void BtnTwitchLogin_Click(object sender, RoutedEventArgs e)
-    {
-        if (_twitchAuth.IsLoggingIn) return;
-
-        BtnTwitchLogin.IsEnabled = false;
-        BtnTwitchLogin.Content = "��������...";
-        SetStage("����������� ����� Twitch...");
-
-        try
-        {
-            var account = await _twitchAuth.AuthenticateAsync();
-            if (account != null)
-            {
-                _twitchAccount = account;
-                TwitchStorage.Save(account);
-                _twitchStream.Start(account);
-                UpdateTwitchUI();
-                UpdateStreamInfoDisplay(null);
-                AppendLog($"Twitch: ����������� ��� {account.Username}");
-            }
-            else
-            {
-                AppendLog("Twitch: ����������� �������� ��� �� �������.");
-            }
-        }
-catch (Exception ex)
-                {
-                    AppendLog("Не удалось обновить сессию: " + ex.Message);
-                }
-        finally
-        {
-            BtnTwitchLogin.IsEnabled = true;
-            HideProgress();
-        }
-    }
-
-    private void UpdateTwitchUI()
-    {
-        if (_twitchAccount != null)
-        {
-            TwitchAuthPanel.Visibility = Visibility.Collapsed;
-            TwitchAccountPanel.Visibility = Visibility.Visible;
-            TwitchAccountName.Text = _twitchAccount.Username;
-            TwitchAccountStatus.Text = "�� ������������ ����� Twitch";
-
-            if (!string.IsNullOrEmpty(_twitchAccount.ProfileImageUrl))
-            {
-                try
-                {
-                    TwitchAccountAvatar.Source = new BitmapImage(new Uri(_twitchAccount.ProfileImageUrl));
-                }
-                catch { TwitchAccountAvatar.Source = null; }
-            }
-        }
-        else
-        {
-            TwitchAuthPanel.Visibility = Visibility.Visible;
-            TwitchAccountPanel.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void UpdateStreamInfoDisplay(TwitchStreamInfo? info)
-    {
-        if (PageStreams == null) return;
-
-        if (_twitchAccount == null)
-        {
-            StreamsAuthRequired.Visibility = Visibility.Visible;
-            StreamsContent.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        StreamsAuthRequired.Visibility = Visibility.Collapsed;
-        StreamsContent.Visibility = Visibility.Visible;
-
-        if (info == null)
-        {
-            StreamsStatus.Text = "��������...";
-            StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
-            StreamsTitle.Text = "";
-            StreamsGame.Text = "";
-            StreamsViewers.Text = "";
-            BtnOpenStream.IsEnabled = false;
-            return;
-        }
-
-        if (info.IsLive)
-        {
-            StreamsStatus.Text = "? � �����";
-            StreamsStatus.Foreground = (Brush)FindResource("Danger");
-            StreamsTitle.Text = info.Title;
-            StreamsGame.Text = $"����: {info.GameName}";
-            StreamsViewers.Text = $"��������: {info.ViewerCount}";
-            BtnOpenStream.IsEnabled = true;
-        }
-        else
-        {
-            StreamsStatus.Text = "����� ������ �������";
-            StreamsStatus.Foreground = (Brush)FindResource("FgMuted");
-            StreamsTitle.Text = "";
-            StreamsGame.Text = "";
-            StreamsViewers.Text = "";
-            BtnOpenStream.IsEnabled = false;
-        }
-    }
-
-    private void BtnOpenStream_Click(object sender, RoutedEventArgs e)
-    {
-        if (_currentStreamInfo?.IsLive == true)
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = _currentStreamInfo.StreamUrl,
-                    UseShellExecute = true
-                });
-            }
-            catch { }
-        }
-    }
-
-    private async void BtnTwitchLogout_Click(object sender, RoutedEventArgs e)
-    {
-        _twitchStream.Stop();
-        TwitchStorage.Clear();
-        _twitchAccount = null;
-        _currentStreamInfo = null;
-        UpdateTwitchUI();
-        UpdateStreamInfoDisplay(null);
-        AppendLog("Twitch: выполнен выход из аккаунта.");
-    }
-
-    private async Task RefreshStreamStatusAsync()
-    {
-        if (_twitchAccount == null)
-        {
-            UpdateStreamInfoDisplay(null);
-            return;
-        }
-        var info = await _twitchStream.GetStreamInfoAsync().ConfigureAwait(false);
-        Dispatcher.Invoke(() => UpdateStreamInfoDisplay(info));
-    }
-
-private void SetAccount(MinecraftAccount acc, bool refreshSkin)
+    private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         _account = acc;
 
@@ -2355,20 +2136,26 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (acc.IsOffline)
         {
+            TxtAuthState.Text = "Активен оффлайн-профиль. Для официальных серверов и смены скина " +
+                                "войдите через Microsoft.";
             TxtSideStatus.Text = "Оффлайн-профиль";
         }
         else
         {
+            TxtAuthState.Text = acc.IsExpired
+                ? "Сессия истекла — потребуется повторный вход."
+                : $"Вход выполнен. Сессия активна до {acc.ExpiresAt.ToLocalTime():dd.MM.yyyy HH:mm}.";
             TxtSideStatus.Text = acc.IsExpired ? "Сессия истекла" : "Microsoft · онлайн";
         }
 
         TxtSideName.Text = acc.Username;
+        BtnLogout.IsEnabled = true;
         BtnUploadSkin.IsEnabled = !acc.IsOffline;
         BtnResetSkin.IsEnabled = !acc.IsOffline;
 
         if (acc.IsOffline)
         {
-            TxtSkinStatus.Text = "����� ����� ���������� ��� �������-�������.";
+            TxtSkinStatus.Text = "Смена скина недоступна для оффлайн-профиля.";
             TxtSkinStatus.Foreground = (Brush)FindResource("FgMuted");
         }
 
@@ -2394,7 +2181,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 if (avatar is not null) ImgAvatar.Source = ToImage(avatar);
             });
         }
-        catch (Exception ex) { Log.Warn("�� ������� ��������� ����: " + ex.Message); }
+        catch (Exception ex) { Log.Warn("Не удалось загрузить скин: " + ex.Message); }
     }
 
     private static BitmapImage ToImage(byte[] data)
@@ -2412,17 +2199,17 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     private async void BtnRefreshSkin_Click(object sender, RoutedEventArgs e)
     {
         if (_account is null) return;
-        TxtSkinStatus.Text = "�������� ������...";
+        TxtSkinStatus.Text = "Обновляю превью...";
         await LoadSkinImagesAsync(_account);
-        TxtSkinStatus.Text = "������ ���������.";
+        TxtSkinStatus.Text = "Превью обновлено.";
     }
 
     private void BtnBrowseSkin_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "�������� ���� �����",
-            Filter = "PNG ����������� (*.png)|*.png|��� ����� (*.*)|*.*",
+            Title = "Выберите файл скина",
+            Filter = "PNG изображения (*.png)|*.png|Все файлы (*.*)|*.*",
             CheckFileExists = true
         };
         if (dlg.ShowDialog(this) != true) return;
@@ -2432,7 +2219,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         try
         {
             SkinService.ValidateSkinPng(File.ReadAllBytes(dlg.FileName));
-            TxtSkinStatus.Text = "���� ����������. ������� �������� �����.";
+            TxtSkinStatus.Text = "Файл корректный. Нажмите «Сменить скин».";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
         }
         catch (Exception ex)
@@ -2449,20 +2236,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var path = TxtSkinPath.Text.Trim();
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            TxtSkinStatus.Text = "������� �������� PNG-���� �����.";
+            TxtSkinStatus.Text = "Сначала выберите PNG-файл скина.";
             TxtSkinStatus.Foreground = (Brush)FindResource("Danger");
             return;
         }
 
         BtnUploadSkin.IsEnabled = false;
         TxtSkinStatus.Foreground = (Brush)FindResource("FgMuted");
-        TxtSkinStatus.Text = "��������� ���� �� ������� Mojang...";
+        TxtSkinStatus.Text = "Отправляю скин на серверы Mojang...";
 
         try
         {
             if (_account.IsOffline)
                 throw new InvalidOperationException(
-                    "����� ����� �������� ������ ��� �������� Microsoft.");
+                    "Смена скина доступна только для аккаунта Microsoft.");
 
             if (_account.IsExpired && !string.IsNullOrEmpty(_account.MicrosoftRefreshToken))
             {
@@ -2474,16 +2261,16 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             var model = RbSlim.IsChecked == true ? SkinService.SkinModel.Slim : SkinService.SkinModel.Classic;
             await _skins.UploadSkinAsync(_account.AccessToken, path, model);
 
-            TxtSkinStatus.Text = "���� �������! �������� ������...";
+            TxtSkinStatus.Text = "Скин изменён! Обновляю превью...";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
 
             await Task.Delay(2500);
             await LoadSkinImagesAsync(_account);
-            TxtSkinStatus.Text = "���� ������� �������.";
+            TxtSkinStatus.Text = "Скин успешно изменён.";
         }
         catch (Exception ex)
         {
-            Log.Error("������ ����� �����", ex);
+            Log.Error("Ошибка смены скина", ex);
             TxtSkinStatus.Text = ex.Message;
             TxtSkinStatus.Foreground = (Brush)FindResource("Danger");
         }
@@ -2494,14 +2281,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         if (_account is null) return;
 
-        if (MessageBox.Show("�������� ���� �� �����������?", "�������������",
+        if (MessageBox.Show("Сбросить скин на стандартный?", "Подтверждение",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
         BtnResetSkin.IsEnabled = false;
         try
         {
             await _skins.ResetSkinAsync(_account.AccessToken);
-            TxtSkinStatus.Text = "���� �������.";
+            TxtSkinStatus.Text = "Скин сброшен.";
             TxtSkinStatus.Foreground = (Brush)FindResource("Accent");
             await Task.Delay(2000);
             await LoadSkinImagesAsync(_account);
@@ -2515,11 +2302,11 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     // =====================================================================
-    //  ������
+    //  ПРОЧЕЕ
     // =====================================================================
 
     // =====================================================================
-    //  ���������: ������� � ��������
+    //  НАСТРОЙКИ: РАЗДЕЛЫ И ДЕЙСТВИЯ
     // =====================================================================
 
     private void SettingsSection_Checked(object sender, RoutedEventArgs e)
@@ -2540,7 +2327,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         if (tag == "storage") RefreshPortableState();
     }
 
-    /// <summary>����� ��������� ��������� � ����� ��������� �� ����.</summary>
+    /// <summary>Любое изменение настройки — сразу сохраняем на диск.</summary>
     private void Setting_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded || _initializing) return;
@@ -2574,7 +2361,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
     private void BtnRescanJava_Click(object sender, RoutedEventArgs e)
     {
-        TxtJavaList.Text = "�����";
+        TxtJavaList.Text = "Поиск…";
         _ = Task.Run(DetectJava);
     }
 
@@ -2586,15 +2373,15 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         _ = Task.Run(DetectJava);
     }
 
-    // ---------- ���������� �������� ���� ----------
+    // ---------- Управление версиями игры ----------
 
     private List<InstalledVersion> _installedVersions = new();
 
-    // ---------- ���������� � ����� �� �������� ----------
+    // ---------- Сохранение и сброс по разделам ----------
 
     private string _currentSettingsSection = "game";
 
-    // ��������� ���� ��������� � ���������, ����� �� ������ ���� �� ������ �����
+    // Текстовые поля сохраняем с задержкой, чтобы не писать файл на каждую букву
     private DispatcherTimer? _autoSaveTimer;
 
     private void ScheduleAutoSave(Action action)
@@ -2631,19 +2418,19 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         ScheduleAutoSave(() => InstSetting_Changed(sender, e));
     }
 
-    /// <summary>����������� ����������, ��� ��������� ��������.</summary>
+    /// <summary>Ненавязчиво показываем, что изменения записаны.</summary>
     private void ShowSavedHint()
     {
         if (TxtSettingsHint is null) return;
 
-        TxtSettingsHint.Text = $"��������� � {DateTime.Now:HH:mm:ss}";
+        TxtSettingsHint.Text = $"Сохранено в {DateTime.Now:HH:mm:ss}";
         TxtSettingsHint.Foreground = (Brush)FindResource("Accent");
 
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         t.Tick += (s, _) =>
         {
             t.Stop();
-            TxtSettingsHint.Text = "��������� ����������� � ����������� �����";
+            TxtSettingsHint.Text = "Изменения применяются и сохраняются сразу";
             TxtSettingsHint.Foreground = (Brush)FindResource("FgMuted");
         };
         t.Start();
@@ -2653,23 +2440,23 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         var sectionName = _currentSettingsSection switch
         {
-            "java" => "�Java � �������",
-            "view" => "�������� ���",
-            "storage" => "����������",
-            "versions" => "������� �����",
-            "maint" => "�������������",
-            _ => "�����"
+            "java" => "«Java и память»",
+            "view" => "«Внешний вид»",
+            "storage" => "«Хранилище»",
+            "versions" => "«Версии игры»",
+            "maint" => "«Обслуживание»",
+            _ => "«Игра»"
         };
 
         if (_currentSettingsSection is "versions" or "maint")
         {
-            MessageBox.Show($"� ������� {sectionName} ��� �������� ��� ������.",
-                "�����", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"В разделе {sectionName} нет настроек для сброса.",
+                "Сброс", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        if (MessageBox.Show($"�������� ��������� ������� {sectionName} � ��������� �� ���������?",
-                "����� �������", MessageBoxButton.YesNo, MessageBoxImage.Question)
+        if (MessageBox.Show($"Сбросить настройки раздела {sectionName} к значениям по умолчанию?",
+                "Сброс раздела", MessageBoxButton.YesNo, MessageBoxImage.Question)
             != MessageBoxResult.Yes) return;
 
         var def = new LauncherSettings();
@@ -2725,10 +2512,10 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         SettingsService.Save(_settings);
         ApplySettingsToUi();
 
-        AppendLog($"������ {sectionName} �������.");
+        AppendLog($"Раздел {sectionName} сброшен.");
     }
 
-    // ---------- ���� �������� ����� ----------
+    // ---------- Своя цветовая схема ----------
 
     private void BtnCustomTheme_Click(object sender, RoutedEventArgs e)
     {
@@ -2752,13 +2539,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         ApplyWindowBackground();
         SettingsService.Save(_settings);
 
-        AppendLog("��������� ���� �������� �����.");
+        AppendLog("Применена своя цветовая схема.");
     }
     private void BtnScanVersions_Click(object sender, RoutedEventArgs e) => ScanVersions();
 
     private void ScanVersions()
     {
-        TxtVersionsSummary.Text = "���������";
+        TxtVersionsSummary.Text = "Сканирую…";
 
         try
         {
@@ -2766,8 +2553,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
             var total = _installedVersions.Sum(v => v.SizeBytes);
             TxtVersionsSummary.Text = _installedVersions.Count == 0
-                ? "������ ��� �� �����������. ��� �������� ����� ������� ������� ����."
-                : $"����� ������: {_installedVersions.Count}  �  ������ {Human(total)}";
+                ? "Версии ещё не установлены. Они появятся после первого запуска игры."
+                : $"Всего версий: {_installedVersions.Count}  ·  занято {Human(total)}";
 
             ItemsVersions.ItemsSource = _installedVersions.Select(v =>
             {
@@ -2780,17 +2567,17 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 };
 
                 var parts = new List<string> { v.SizeDisplay };
-                if (v.IsIsolated) parts.Add($"������������� � {v.OwnerInstance}");
-                if (!v.HasJar) parts.Add("������ �� ��������");
-                if (v.InheritsFrom is not null) parts.Add($"�� ���� {v.InheritsFrom}");
-                parts.Add(v.InUse ? "������������: " + string.Join(", ", v.UsedBy) : "�� ������������");
+                if (v.IsIsolated) parts.Add($"изолированная · {v.OwnerInstance}");
+                if (!v.HasJar) parts.Add("клиент не загружен");
+                if (v.InheritsFrom is not null) parts.Add($"на базе {v.InheritsFrom}");
+                parts.Add(v.InUse ? "используется: " + string.Join(", ", v.UsedBy) : "не используется");
 
                 return new
                 {
                     v.Id,
                     v.Kind,
                     Dir = v.Directory,
-                    Info = string.Join("  �  ", parts),
+                    Info = string.Join("  ·  ", parts),
                     KindBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bg)),
                     KindFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(fg))
                 };
@@ -2798,7 +2585,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            TxtVersionsSummary.Text = "������ ������������: " + ex.Message;
+            TxtVersionsSummary.Text = "Ошибка сканирования: " + ex.Message;
         }
     }
 
@@ -2818,40 +2605,40 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("������� ���������� ���� � ����� ������ ������ ������.",
-                "���� ��������", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Сначала остановите игру — файлы версии сейчас заняты.",
+                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var warn = version.InUse
-            ? $"\n\n��������: ������ ���������� ������: {string.Join(", ", version.UsedBy)}.\n" +
-              "����� �������� ��� ������� ����� ������ ��� �������."
+            ? $"\n\nВНИМАНИЕ: версию используют сборки: {string.Join(", ", version.UsedBy)}.\n" +
+              "После удаления они скачают файлы заново при запуске."
             : "";
 
         var r = MessageBox.Show(
-            $"������� ������ �{version.Id}�?\n\n" +
-            $"����������� {version.SizeDisplay}.\n" +
-            "����, ���� � ��������� ������ ��������� �� �����." + warn,
-            "�������� ������", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            $"Удалить версию «{version.Id}»?\n\n" +
+            $"Освободится {version.SizeDisplay}.\n" +
+            "Моды, миры и настройки сборок затронуты не будут." + warn,
+            "Удаление версии", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (r != MessageBoxResult.Yes) return;
 
         try
         {
             var freed = VersionManagerService.Delete(version);
-            AppendLog($"������ {version.Id} �������, ����������� {Human(freed)}.");
+            AppendLog($"Версия {version.Id} удалена, освобождено {Human(freed)}.");
             ScanVersions();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� �������: " + ex.Message + "\n\n" +
-                            "��������, ����� ������ ������ ����������.",
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось удалить: " + ex.Message + "\n\n" +
+                            "Возможно, файлы заняты другой программой.",
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private void BtnCalcSize_Click(object sender, RoutedEventArgs e)
     {
-        TxtStorageInfo.Text = "�������";
+        TxtStorageInfo.Text = "Считаю…";
 
         _ = Task.Run(() =>
         {
@@ -2879,19 +2666,19 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             {
                 var s = Size(InstanceService.InstanceDir(inst));
                 instancesTotal += s;
-                perInstance.Add($"     � {inst.Name}: {Human(s)}" + (inst.Isolated ? "  (�������������)" : ""));
+                perInstance.Add($"     • {inst.Name}: {Human(s)}" + (inst.Isolated ? "  (изолированная)" : ""));
             }
 
             var text =
-                $"����� ���������:\n" +
-                $"     ����������: {Human(libs)}\n" +
-                $"     �������: {Human(assets)}\n" +
-                $"     ������: {Human(versions)}\n" +
+                $"Общее хранилище:\n" +
+                $"     библиотеки: {Human(libs)}\n" +
+                $"     ресурсы: {Human(assets)}\n" +
+                $"     версии: {Human(versions)}\n" +
                 $"     Java: {Human(runtime)}\n" +
-                $"     ���: {Human(cache)}\n\n" +
-                $"������ ({_instances.Count}): {Human(instancesTotal)}\n" +
+                $"     кэш: {Human(cache)}\n\n" +
+                $"Сборки ({_instances.Count}): {Human(instancesTotal)}\n" +
                 string.Join("\n", perInstance) +
-                $"\n\n�����: {Human(libs + assets + versions + runtime + cache + instancesTotal)}";
+                $"\n\nВсего: {Human(libs + assets + versions + runtime + cache + instancesTotal)}";
 
             Dispatcher.Invoke(() => TxtStorageInfo.Text = text);
         });
@@ -2906,30 +2693,30 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             {
                 foreach (var f in Directory.GetFiles(LauncherPaths.CacheDir))
                 {
-                    // �������� ������ ��������� � �� ����� � �������
+                    // манифест версий оставляем — он нужен в офлайне
                     if (f.EndsWith("version_manifest_v2.json", StringComparison.OrdinalIgnoreCase)) continue;
                     try { freed += new FileInfo(f).Length; File.Delete(f); } catch { }
                 }
             }
 
-            TxtMaintenance.Text = $"��� ������, ����������� {Human(freed)}.";
-            AppendLog($"��� ������ ({Human(freed)}).");
+            TxtMaintenance.Text = $"Кэш очищен, освобождено {Human(freed)}.";
+            AppendLog($"Кэш очищен ({Human(freed)}).");
         }
         catch (Exception ex)
         {
-            TxtMaintenance.Text = "�� ������� �������� ���: " + ex.Message;
+            TxtMaintenance.Text = "Не удалось очистить кэш: " + ex.Message;
         }
     }
 
     private async void BtnCheckCurse_Click(object sender, RoutedEventArgs e)
     {
-        TxtMaintenance.Text = "�������� ������ � CurseForge API�";
+        TxtMaintenance.Text = "Проверяю доступ к CurseForge API…";
 
         var ok = await _mods.CheckCurseForgeAsync();
 
         TxtMaintenance.Text = ok
-            ? "CurseForge API �������� � ����� �������� �� ����� ����������."
-            : _mods.CurseForgeError ?? "CurseForge ����������, ������������ ������ Modrinth.";
+            ? "CurseForge API доступен — поиск работает по обоим источникам."
+            : _mods.CurseForgeError ?? "CurseForge недоступен, используется только Modrinth.";
 
         UpdateModsSubtitle();
     }
@@ -2937,9 +2724,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     private void BtnResetSettings_Click(object sender, RoutedEventArgs e)
     {
         var r = MessageBox.Show(
-            "�������� ��� ��������� �������� � ��������� �� ���������?\n\n" +
-            "������, ���� � ������� ��������� �� �����.",
-            "����� ��������", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            "Сбросить все настройки лаунчера к значениям по умолчанию?\n\n" +
+            "Сборки, моды и аккаунт затронуты не будут.",
+            "Сброс настроек", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (r != MessageBoxResult.Yes) return;
 
@@ -2959,12 +2746,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         ApplyBanner();
         ApplyWindowBackground();
 
-        TxtMaintenance.Text = "��������� ��������.";
-        AppendLog("��������� �������� � ��������� �� ���������.");
+        TxtMaintenance.Text = "Настройки сброшены.";
+        AppendLog("Настройки сброшены к значениям по умолчанию.");
     }
 
     // =====================================================================
-    //  ����
+    //  МОДЫ
     // =====================================================================
 
     private List<ModSearchResult> _modResults = new();
@@ -2998,11 +2785,11 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         _ => null
     };
 
-    /// <summary>��������� ��������� ��������� ��� �������.</summary>
+    /// <summary>Обновляет состояние пагинации под списком.</summary>
     private void UpdatePager(ModService.SearchPage page)
     {
         ModPager.Visibility = page.TotalCount > ModPageSize ? Visibility.Visible : Visibility.Collapsed;
-        TxtPageInfo.Text = $"�������� {page.PageNumber} �� {page.TotalPages}";
+        TxtPageInfo.Text = $"Страница {page.PageNumber} из {page.TotalPages}";
         BtnPrevPage.IsEnabled = page.HasPrevious;
         BtnNextPage.IsEnabled = page.HasNext;
     }
@@ -3021,7 +2808,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         RunModSearch();
     }
 
-    /// <summary>����� ������ � ������ � ������ ��������.</summary>
+    /// <summary>Новый запрос — всегда с первой страницы.</summary>
     private void RunModSearchFromStart()
     {
         _modOffset = 0;
@@ -3030,14 +2817,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
     private void RunModSearch() => BtnModSearch_Click(this, new RoutedEventArgs());
 
-    /// <summary>������ ������: ����� ������ � ������ ��������.</summary>
+    /// <summary>Кнопка «Найти»: новый запрос с первой страницы.</summary>
     private void BtnModSearchNew_Click(object sender, RoutedEventArgs e) => RunModSearchFromStart();
 
     private async void BtnModSearch_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            TxtModStatus.Text = "������� �������� ������ � �� �� ������� ������ ���� � ���������.";
+            TxtModStatus.Text = "Сначала выберите сборку — от неё зависят версия игры и загрузчик.";
             return;
         }
 
@@ -3047,7 +2834,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         BtnModSearch.IsEnabled = false;
         var type = SelectedContentType;
-        TxtModStatus.Text = "���";
+        TxtModStatus.Text = "Ищу…";
         ItemsMods.ItemsSource = null;
 
         try
@@ -3068,16 +2855,16 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             if (_modResults.Count == 0)
             {
                 TxtModStatus.Text = _selectedInstance.Loader == LoaderKind.Vanilla && type == ModContentType.Mod
-                    ? $"������ �� �������. � ������ �{_selectedInstance.Name}� ��� ���������� � " +
-                      "��� ����� �������� ������ � Fabric, Forge ��� NeoForge."
-                    : $"������ �� ������� ��� Minecraft {_selectedInstance.McVersion}.";
+                    ? $"Ничего не найдено. У сборки «{_selectedInstance.Name}» нет модлоадера — " +
+                      "для модов создайте сборку с Fabric, Forge или NeoForge."
+                    : $"Ничего не найдено для Minecraft {_selectedInstance.McVersion}.";
                 UpdatePager(page);
                 return;
             }
 
-            var extra = _mods.CurseForgeAvailable ? "" : "  �  ������ Modrinth";
-            TxtModStatus.Text = $"�������: {page.TotalCount}  �  " +
-                                $"{_selectedInstance.McVersion} � {_selectedInstance.Loader.Display()}{extra}";
+            var extra = _mods.CurseForgeAvailable ? "" : "  ·  только Modrinth";
+            TxtModStatus.Text = $"Найдено: {page.TotalCount}  ·  " +
+                                $"{_selectedInstance.McVersion} · {_selectedInstance.Loader.Display()}{extra}";
 
             ItemsMods.ItemsSource = _modResults.Select((m, i) => BuildModView(m, i)).ToList();
             UpdatePager(page);
@@ -3088,16 +2875,16 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            TxtModStatus.Text = "������ ������: " + ex.Message;
-            Log.Error("����� �����", ex);
+            TxtModStatus.Text = "Ошибка поиска: " + ex.Message;
+            Log.Error("Поиск модов", ex);
         }
         finally { BtnModSearch.IsEnabled = true; }
     }
 
     private object BuildModView(ModSearchResult m, int index)
     {
-        // ������ ��, ��� ��� � ����. ��������� ���������� ���������� (LoadModIconsAsync),
-        // ����� WPF ������ �������� ����� � UI-������ � ���� ������.
+        // Только то, что уже в кэше. Остальное догрузится асинхронно (LoadModIconsAsync),
+        // иначе WPF качает картинку прямо в UI-потоке и окно виснет.
         var icon = ImageCacheService.TryGetCached(m.IconUrl);
 
         var isModrinth = m.Provider == ModProvider.Modrinth;
@@ -3106,22 +2893,22 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         {
             Index = index,
             m.Title,
-            Summary = string.IsNullOrWhiteSpace(m.Summary) ? "��� ��������" : m.Summary,
+            Summary = string.IsNullOrWhiteSpace(m.Summary) ? "Без описания" : m.Summary,
             Icon = icon,
             Initial = m.Title.Length > 0 ? m.Title[..1].ToUpperInvariant() : "?",
             PlaceholderVisibility = icon is null ? Visibility.Visible : Visibility.Collapsed,
             Source = m.ProviderDisplay,
             SourceBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isModrinth ? "#14301F" : "#33210F")),
             SourceFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isModrinth ? "#4ADE80" : "#FB923C")),
-            DownloadsText = m.DownloadsDisplay + " ��������",
-            AuthorText = string.IsNullOrEmpty(m.Author) ? "" : "�����: " + m.Author,
+            DownloadsText = m.DownloadsDisplay + " загрузок",
+            AuthorText = string.IsNullOrEmpty(m.Author) ? "" : "автор: " + m.Author,
             PageUrl = m.PageUrl ?? ""
         };
     }
 
     /// <summary>
-    /// ��������� ������ � ���� � ��������� ������, ����� ��� ������.
-    /// ��� ������� ���������� ���������, � �������� ������������� ����������.
+    /// Догружает иконки в фоне и обновляет список, когда они готовы.
+    /// Так каталог появляется мгновенно, а картинки подтягиваются постепенно.
     /// </summary>
     private async Task LoadModIconsAsync(List<ModSearchResult> items, CancellationToken ct)
     {
@@ -3149,10 +2936,10 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not string url || url.Length == 0) return;
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) { AppendLog("�� ������� ������� ������: " + ex.Message); }
+        catch (Exception ex) { AppendLog("Не удалось открыть ссылку: " + ex.Message); }
     }
 
-    /// <summary>��������� �������� ���� �� ���������� ��������.</summary>
+    /// <summary>Открывает страницу мода во встроенном браузере.</summary>
     private void ModPageInApp_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not int index) return;
@@ -3163,7 +2950,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var dlg = new ModBrowserDialog(project) { Owner = this };
         var result = dlg.ShowDialog();
 
-        // �� ���� ��������� ����� ����� ��������� ���
+        // Из окна просмотра можно сразу поставить мод
         if (result == true && dlg.InstallRequested)
             _ = InstallModAsync(project, null);
     }
@@ -3175,23 +2962,23 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         await InstallModAsync(_modResults[index], btn);
     }
 
-    /// <summary>����� ���� ���������: �� �������� � �� ���� ���������.</summary>
+    /// <summary>Общий путь установки: из каталога и из окна просмотра.</summary>
     private async Task InstallModAsync(ModSearchResult project, Button? btn)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var inst = _selectedInstance;
 
-        if (btn is not null) { btn.IsEnabled = false; btn.Content = "�"; }
+        if (btn is not null) { btn.IsEnabled = false; btn.Content = "…"; }
 
         try
         {
-            // ������ ������ ������ � ��� � Modrinth App
+            // Диалог выбора версии — как в Modrinth App
             var dlg = new ModVersionDialog(_mods, project, inst.McVersion, inst.Loader) { Owner = this };
             if (dlg.ShowDialog() != true || dlg.SelectedFile is null) return;
 
@@ -3207,11 +2994,11 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             var outcome = await _mods.InstallAsync(
                 chosen, targetDir, inst.McVersion, inst.Loader, dlg.InstallDependencies);
 
-            var msg = $"�����������: {outcome.Installed.Count}";
-            if (outcome.Skipped.Count > 0) msg += $"\n���������: {string.Join(", ", outcome.Skipped)}";
-            if (outcome.Failed.Count > 0) msg += $"\n������: {string.Join(", ", outcome.Failed)}";
+            var msg = $"Установлено: {outcome.Installed.Count}";
+            if (outcome.Skipped.Count > 0) msg += $"\nПропущено: {string.Join(", ", outcome.Skipped)}";
+            if (outcome.Failed.Count > 0) msg += $"\nОшибки: {string.Join(", ", outcome.Failed)}";
 
-            AppendLog($"�{project.Title}� > {msg.Replace("\n", "; ")}");
+            AppendLog($"«{project.Title}» → {msg.Replace("\n", "; ")}");
 
             MessageBox.Show(msg, project.Title,
                 outcome.Failed.Count > 0 ? MessageBoxButton.OK : MessageBoxButton.OK,
@@ -3221,12 +3008,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            Log.Error("��������� ����", ex);
-            MessageBox.Show(ex.Message, "������ ���������", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.Error("Установка мода", ex);
+            MessageBox.Show(ex.Message, "Ошибка установки", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
-            if (btn is not null) { btn.IsEnabled = true; btn.Content = "����������"; }
+            if (btn is not null) { btn.IsEnabled = true; btn.Content = "Установить"; }
         }
     }
 
@@ -3235,15 +3022,15 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         if (TxtModsSubtitle is null) return;
 
         TxtModsSubtitle.Text = _mods.CurseForgeAvailable
-            ? "������� Modrinth � CurseForge"
-            : "������� Modrinth  �  CurseForge ���������� � ������� ������";
+            ? "Каталог Modrinth и CurseForge"
+            : "Каталог Modrinth  ·  CurseForge недоступен с текущим ключом";
     }
     private void SldMemory_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!IsLoaded) return;
         var mb = (int)e.NewValue;
-        TxtMemory.Text = $"{mb} ��";
-        TxtBadgeRam.Text = $"RAM: {mb} ��";
+        TxtMemory.Text = $"{mb} МБ";
+        TxtBadgeRam.Text = $"RAM: {mb} МБ";
         _settings.MaxMemoryMb = mb;
     }
 
@@ -3251,8 +3038,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "�������� java.exe",
-            Filter = "java.exe|java.exe;javaw.exe|����������� ����� (*.exe)|*.exe",
+            Title = "Выберите java.exe",
+            Filter = "java.exe|java.exe;javaw.exe|Исполняемые файлы (*.exe)|*.exe",
             CheckFileExists = true
         };
         if (dlg.ShowDialog(this) != true) return;
@@ -3260,7 +3047,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var probe = JavaService.Probe(dlg.FileName, "custom");
         if (probe is null)
         {
-            MessageBox.Show("�� ������� ���������� ������ Java.", "Java",
+            MessageBox.Show("Не удалось определить версию Java.", "Java",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -3268,13 +3055,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         TxtJavaPath.Text = dlg.FileName;
         _settings.CustomJavaPath = dlg.FileName;
         TxtBadgeJava.Text = $"Java {probe.MajorVersion}";
-        AppendLog("������� Java: " + probe);
+        AppendLog("Выбрана Java: " + probe);
     }
 
     private void BtnOpenDir_Click(object sender, RoutedEventArgs e)
     {
         try { InstanceService.OpenFolder(_settings.GameDir); }
-        catch (Exception ex) { AppendLog("�� ������� ������� �����: " + ex.Message); }
+        catch (Exception ex) { AppendLog("Не удалось открыть папку: " + ex.Message); }
     }
 
     private void BtnOpenLogFile_Click(object sender, RoutedEventArgs e)
@@ -3305,7 +3092,6 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         PageContent.Visibility = tag == "7" ? Visibility.Visible : Visibility.Collapsed;
         PageBot.Visibility = tag == "8" ? Visibility.Visible : Visibility.Collapsed;
-        PageStreams.Visibility = tag == "10" ? Visibility.Visible : Visibility.Collapsed;
 
         if (tag == "1") { RefreshInstanceStats(); LoadScreenshots(); }
         if (tag == "6")
@@ -3315,11 +3101,10 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         if (tag == "7") RefreshContent();
         if (tag == "8") RefreshBotEnvInfo();
-        if (tag == "10") _ = RefreshStreamStatusAsync();
     }
 
     // =====================================================================
-    //  ����� �� �������
+    //  ПОИСК ПО СБОРКАМ
     // =====================================================================
 
     private string _instanceFilter = "";
@@ -3332,7 +3117,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         RefreshInstanceLists();
     }
 
-    /// <summary>���� ������ ����������, ����� ������ ���������� �����.</summary>
+    /// <summary>Поле поиска появляется, когда сборок становится много.</summary>
     private void UpdateSearchVisibility()
     {
         if (TxtInstanceSearch is null) return;
@@ -3353,7 +3138,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     // =====================================================================
-    //  ������ �������
+    //  ФИЛЬТР КОНСОЛИ
     // =====================================================================
 
     private string _logFilter = "all";
@@ -3374,7 +3159,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         if (_logFilter == "all")
         {
             TxtLog.Text = all;
-            TxtLogInfo.Text = "������ �������� � ����� ����";
+            TxtLogInfo.Text = "Журнал лаунчера и вывод игры";
             ScrollLog.ScrollToEnd();
             return;
         }
@@ -3384,9 +3169,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         TxtLog.Text = filtered.Count > 0
             ? string.Join("\n", filtered)
-            : (_logFilter == "error" ? "������ ���." : "�������������� ���.");
+            : (_logFilter == "error" ? "Ошибок нет." : "Предупреждений нет.");
 
-        TxtLogInfo.Text = $"�������� {filtered.Count} �� {lines.Length} �����";
+        TxtLogInfo.Text = $"Показано {filtered.Count} из {lines.Length} строк";
         ScrollLog.ScrollToEnd();
     }
 
@@ -3395,35 +3180,35 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var lower = line.ToLowerInvariant();
 
         var isError = lower.Contains("[error]") || lower.Contains("error]") ||
-                      lower.Contains("exception") || lower.Contains("������") ||
-                      lower.Contains("�� �������") || lower.Contains("severe") ||
+                      lower.Contains("exception") || lower.Contains("ошибка") ||
+                      lower.Contains("не удалось") || lower.Contains("severe") ||
                       lower.Contains("fatal") || lower.Contains("!!!");
 
         if (level == "error") return isError;
 
-        // ��� ��������������� ���������� � ������ � ��� ������
+        // Для «предупреждений» показываем и ошибки — они важнее
         return isError || lower.Contains("[warn]") || lower.Contains("warn]") ||
-               lower.Contains("��������") || lower.Contains("����������");
+               lower.Contains("внимание") || lower.Contains("предупрежд");
     }
 
     // =====================================================================
-    //  ������� �������
+    //  ГОРЯЧИЕ КЛАВИШИ
     // =====================================================================
 
     // =====================================================================
-    //  ��������� ��˨�����
+    //  ПРОКРУТКА КОЛЁСИКОМ
     // =====================================================================
 
     /// <summary>
-    /// ComboBox � Slider �������� ������ ����: ������� ������ �� ������ ������
-    /// ��� ��������� �������� � � ������ ������� �������� ��������.
-    /// ����� �� ����� ����� ��������� � ������� ��������� ������������� ScrollViewer.
+    /// ComboBox и Slider «съедают» колесо мыши: наведёшь курсор на список версий
+    /// при прокрутке страницы — и вместо скролла меняется значение.
+    /// Здесь мы гасим такое поведение и передаём прокрутку родительскому ScrollViewer.
     /// </summary>
     private void BlockingControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not UIElement element) return;
 
-        // � ���������� ������ ��������� ���� � �� ������
+        // У раскрытого списка прокрутка своя — не мешаем
         if (sender is ComboBox { IsDropDownOpen: true }) return;
 
         e.Handled = true;
@@ -3446,8 +3231,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     /// <summary>
-    /// ������ ������ �� ������ ������ �� ��� ComboBox � Slider ����.
-    /// �������� ���� ��� ����� ��������.
+    /// Вешает защиту от «кражи» колеса на все ComboBox и Slider окна.
+    /// Делается один раз после загрузки.
     /// </summary>
     private void SetupWheelHandling(DependencyObject root)
     {
@@ -3464,12 +3249,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 el.PreviewMouseWheel += BlockingControl_PreviewMouseWheel;
             }
 
-            // ������ �������������� ������� �� �����
+            // Внутрь раскрывающихся списков не лезем
             if (child is not ComboBox) SetupWheelHandling(child);
         }
     }
 
-    /// <summary>��������� ������ ������ �������� � ����� ������ ��� ���������.</summary>
+    /// <summary>Прокрутка списка сборок работает и когда курсор над карточкой.</summary>
     private void ListScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not ScrollViewer sv) return;
@@ -3482,7 +3267,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
 
-        // � ����� ����� �� ������������� ������� �������
+        // В полях ввода не перехватываем обычные клавиши
         var typing = Keyboard.FocusedElement is TextBox or ComboBox;
 
         switch (e.Key)
@@ -3515,7 +3300,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 e.Handled = true;
                 break;
 
-            // Ctrl+1..9 � ������������ �������
+            // Ctrl+1..9 — переключение вкладок
             case >= Key.D1 and <= Key.D9 when ctrl:
                 SwitchTab(e.Key - Key.D1);
                 e.Handled = true;
@@ -3526,12 +3311,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     private void SwitchTab(int index)
     {
         var navs = new[] { NavHome, NavInstances, NavMods, NavContent, NavServers,
-                           NavBot, NavAccount, NavSettings, NavConsole, NavStreams };
+                           NavBot, NavAccount, NavSettings, NavConsole };
 
         if (index >= 0 && index < navs.Length) navs[index].IsChecked = true;
     }
 
-    /// <summary>F5 � ��������� ��, ��� ������� ������.</summary>
+    /// <summary>F5 — обновляет то, что открыто сейчас.</summary>
     private void RefreshCurrentPage()
     {
         if (PageInstances.Visibility == Visibility.Visible)
@@ -3539,7 +3324,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             RefreshInstanceLists();
             RefreshInstanceStats();
             LoadScreenshots();
-            AppendLog("������ ������ �������.");
+            AppendLog("Список сборок обновлён.");
         }
         else if (PageContent.Visibility == Visibility.Visible)
         {
@@ -3570,12 +3355,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     // =====================================================================
-    //  ����������� � ����������
+    //  УВЕДОМЛЕНИЯ О ЗАВЕРШЕНИИ
     // =====================================================================
 
     /// <summary>
-    /// ������ � ������ ����� � ����� ����, ���� ���� ������� �
-    /// ����� �� ������ � �� �������� �� ��������-���.
+    /// Мигает в панели задач и подаёт звук, если окно свёрнуто —
+    /// чтобы не сидеть и не смотреть на прогресс-бар.
     /// </summary>
     private void NotifyFinished(string title, string message, bool success = true)
     {
@@ -3593,7 +3378,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             }
             catch { }
 
-            // ������� ������ � ������ �����
+            // Мигание значка в панели задач
             try
             {
                 var helper = new System.Windows.Interop.WindowInteropHelper(this);
@@ -3617,7 +3402,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
     // =====================================================================
-    //  �������� � ���
+    //  ПРОГРЕСС И ЛОГ
     // =====================================================================
 
     private void OnProgress(DownloadProgress p)
@@ -3634,8 +3419,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             TxtProgressPercent.Text = $"{p.Percent:F1}%";
 
             var detail = p.FilesTotal > 1 ? $"  ({p.FilesDone}/{p.FilesTotal})" : "";
-            var size = p.BytesTotal > 0 ? $"  �  {Human(p.BytesDone)} / {Human(p.BytesTotal)}" : "";
-            var file = string.IsNullOrEmpty(p.CurrentFile) ? "" : "  �  " + Shorten(p.CurrentFile, 44);
+            var size = p.BytesTotal > 0 ? $"  ·  {Human(p.BytesDone)} / {Human(p.BytesTotal)}" : "";
+            var file = string.IsNullOrEmpty(p.CurrentFile) ? "" : "  —  " + Shorten(p.CurrentFile, 44);
 
             TxtProgressStage.Text = p.Stage + detail + size + file;
         });
@@ -3703,7 +3488,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         Dispatcher.BeginInvoke(() =>
         {
-            // ��� �������� ������� �������������� ������ ���������� ������
+            // При активном фильтре перерисовываем только подходящие строки
             if (_logFilter != "all")
             {
                 if (MatchesLogLevel(line, _logFilter)) ApplyLogFilter();
@@ -3718,7 +3503,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     // =====================================================================
-    //  ������� ������
+    //  КОНТЕНТ СБОРКИ
     // =====================================================================
 
     private enum ContentKind { Mods, ResourcePacks, Shaders, Worlds }
@@ -3757,13 +3542,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         if (_selectedInstance is null)
         {
-            TxtContentStatus.Text = "������ �� �������.";
+            TxtContentStatus.Text = "Сборка не выбрана.";
             ItemsContent.ItemsSource = null;
             return;
         }
 
-        TxtContentSubtitle.Text = $"������ �{_selectedInstance.Name}� � " +
-                                  $"{_selectedInstance.McVersion} � {_selectedInstance.LoaderDisplay}";
+        TxtContentSubtitle.Text = $"Сборка «{_selectedInstance.Name}» · " +
+                                  $"{_selectedInstance.McVersion} · {_selectedInstance.LoaderDisplay}";
 
         var dir = CurrentContentDir();
         Directory.CreateDirectory(dir);
@@ -3782,7 +3567,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                     items.Add(new
                     {
                         Name = d.Name,
-                        Info = $"{Human(size)} � ������� {d.LastWriteTime:dd.MM.yyyy HH:mm}",
+                        Info = $"{Human(size)} · изменён {d.LastWriteTime:dd.MM.yyyy HH:mm}",
                         Path = d.FullName,
                         ToggleText = "",
                         ToggleVisibility = Visibility.Collapsed,
@@ -3807,14 +3592,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                     var enabled = !f.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                     var display = enabled
                         ? Path.GetFileNameWithoutExtension(f.Name)
-                        : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f.Name)) + "  (��������)";
+                        : Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f.Name)) + "  (выключен)";
 
                     items.Add(new
                     {
                         Name = display,
-                        Info = $"{Human(f.Length)} � {f.LastWriteTime:dd.MM.yyyy}",
+                        Info = $"{Human(f.Length)} · {f.LastWriteTime:dd.MM.yyyy}",
                         Path = f.FullName,
-                        ToggleText = enabled ? "���������" : "��������",
+                        ToggleText = enabled ? "Выключить" : "Включить",
                         ToggleVisibility = Visibility.Visible,
                         Dot = new SolidColorBrush(enabled
                             ? ThemeService.CurrentAccent
@@ -3825,22 +3610,22 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            Log.Warn("������ ����������� ������: " + ex.Message);
+            Log.Warn("Чтение содержимого сборки: " + ex.Message);
         }
 
         ItemsContent.ItemsSource = items;
 
         var kindName = _contentKind switch
         {
-            ContentKind.ResourcePacks => "�����������",
-            ContentKind.Shaders => "��������",
-            ContentKind.Worlds => "�����",
-            _ => "�����"
+            ContentKind.ResourcePacks => "ресурспаков",
+            ContentKind.Shaders => "шейдеров",
+            ContentKind.Worlds => "миров",
+            _ => "модов"
         };
 
         TxtContentStatus.Text = items.Count == 0
-            ? $"��� {kindName}. ���������� ����� ���� ��� ������� �������."
-            : $"����� {kindName}: {items.Count}";
+            ? $"Нет {kindName}. Перетащите файлы сюда или нажмите «Импорт»."
+            : $"Всего {kindName}: {items.Count}";
     }
 
     private void BtnRefreshContent_Click(object sender, RoutedEventArgs e) => RefreshContent();
@@ -3870,8 +3655,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� �����������: " + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось переключить: " + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -3895,10 +3680,10 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var isDir = Directory.Exists(path);
 
         var msg = isDir
-            ? $"������� ��� �{name}�?\n\n��� �������� ����������."
-            : $"������� �{name}�?";
+            ? $"Удалить мир «{name}»?\n\nЭто действие необратимо."
+            : $"Удалить «{name}»?";
 
-        if (MessageBox.Show(msg, "��������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+        if (MessageBox.Show(msg, "Удаление", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         try
@@ -3906,32 +3691,32 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             if (isDir) Directory.Delete(path, true);
             else File.Delete(path);
 
-            AppendLog($"�������: {name}");
+            AppendLog($"Удалено: {name}");
             RefreshContent();
             RefreshInstanceStats();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� �������: " + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось удалить: " + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
-    // ---------- ������ ----------
+    // ---------- Импорт ----------
 
     private void BtnImportMod_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var dlg = new OpenFileDialog
         {
-            Title = "�������� ����, ���������� ��� �������",
-            Filter = "��� ��������������|*.jar;*.zip;*.mrpack|���� (*.jar)|*.jar|������ (*.zip)|*.zip|��� �����|*.*",
+            Title = "Выберите моды, ресурспаки или шейдеры",
+            Filter = "Все поддерживаемые|*.jar;*.zip;*.mrpack|Моды (*.jar)|*.jar|Архивы (*.zip)|*.zip|Все файлы|*.*",
             Multiselect = true
         };
 
@@ -3957,7 +3742,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 if (Directory.Exists(src))
                 {
                     var worldDst = Path.Combine(InstanceService.SavesDir(inst), Path.GetFileName(src));
-                    if (Directory.Exists(worldDst)) { skipped.Add(Path.GetFileName(src) + " (��� ����)"); continue; }
+                    if (Directory.Exists(worldDst)) { skipped.Add(Path.GetFileName(src) + " (уже есть)"); continue; }
                     CopyDirectory(src, worldDst);
                     ok++;
                     continue;
@@ -3982,19 +3767,19 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 }
                 else if (ext == ".mrpack")
                 {
-                    // ������ ������ ������� � ������� ������
+                    // Модпак ставим целиком в текущую сборку
                     _ = InstallModpackAsync(inst, src);
                     ok++;
                     continue;
                 }
                 else
                 {
-                    skipped.Add(name + " (����������� ���)");
+                    skipped.Add(name + " (неизвестный тип)");
                     continue;
                 }
 
                 var dst = Path.Combine(dstDir, name);
-                if (File.Exists(dst)) { skipped.Add(name + " (��� ����)"); continue; }
+                if (File.Exists(dst)) { skipped.Add(name + " (уже есть)"); continue; }
 
                 File.Copy(src, dst);
                 ok++;
@@ -4005,15 +3790,15 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             }
         }
 
-        var report = $"���������: {ok}";
-        if (skipped.Count > 0) report += $"\n���������: {string.Join(", ", skipped)}";
-        if (failed.Count > 0) report += $"\n������: {string.Join(", ", failed)}";
+        var report = $"Добавлено: {ok}";
+        if (skipped.Count > 0) report += $"\nПропущено: {string.Join(", ", skipped)}";
+        if (failed.Count > 0) report += $"\nОшибки: {string.Join(", ", failed)}";
 
-        AppendLog("������: " + report.Replace("\n", "; "));
+        AppendLog("Импорт: " + report.Replace("\n", "; "));
         RefreshContent();
         RefreshInstanceStats();
 
-        MessageBox.Show(report, "������ ������", MessageBoxButton.OK,
+        MessageBox.Show(report, "Импорт файлов", MessageBoxButton.OK,
             failed.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
@@ -4040,7 +3825,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             CopyDirectory(dir, Path.Combine(dst, Path.GetFileName(dir)));
     }
 
-    // ---------- �������������� ----------
+    // ---------- Перетаскивание ----------
 
     private void Content_DragOver(object sender, DragEventArgs e)
     {
@@ -4050,7 +3835,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         if (hasFiles && _selectedInstance is not null)
         {
             DropHint.Visibility = Visibility.Visible;
-            TxtDropTarget.Text = $"� ������ �{_selectedInstance.Name}�  �  .jar > ����, .zip > ���������� ��� �������";
+            TxtDropTarget.Text = $"в сборку «{_selectedInstance.Name}»  ·  .jar → моды, .zip → ресурспаки или шейдеры";
         }
 
         e.Handled = true;
@@ -4063,7 +3848,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -4072,20 +3857,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         e.Handled = true;
     }
 
-    // ---------- ������ �� ������ Modrinth ----------
+    // ---------- Импорт по ссылке Modrinth ----------
 
     private async void BtnImportUrl_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedInstance is null)
         {
-            MessageBox.Show("������� �������� ������.", "������ �� �������",
+            MessageBox.Show("Сначала выберите сборку.", "Сборка не выбрана",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var dlg = new TextInputDialog(
-            "������ �� Modrinth",
-            "�������� ������ �� ��� ��� ��� slug:",
+            "Импорт из Modrinth",
+            "Вставьте ссылку на мод или его slug:",
             "https://modrinth.com/mod/sodium") { Owner = this };
 
         if (dlg.ShowDialog() != true) return;
@@ -4096,20 +3881,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var slug = ExtractModrinthSlug(input);
         if (slug is null)
         {
-            MessageBox.Show("�� ������� ���������� ������.\n\n������: https://modrinth.com/mod/sodium",
-                "�������� ������", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Не удалось распознать ссылку.\n\nПример: https://modrinth.com/mod/sodium",
+                "Неверная ссылка", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        SetStage($"��� �{slug}� �� Modrinth...");
+        SetStage($"Ищу «{slug}» на Modrinth...");
 
         try
         {
             var project = await _mods.GetProjectAsync(ModProvider.Modrinth, slug);
             if (project is null)
             {
-                MessageBox.Show($"������ �{slug}� �� ������ �� Modrinth.",
-                    "�� �������", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"Проект «{slug}» не найден на Modrinth.",
+                    "Не найдено", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -4122,8 +3907,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 verDlg.SelectedFile, InstanceService.ModsDir(_selectedInstance),
                 _selectedInstance.McVersion, _selectedInstance.Loader, verDlg.InstallDependencies);
 
-            var msg = $"�����������: {outcome.Installed.Count}";
-            if (outcome.Failed.Count > 0) msg += $"\n������: {string.Join(", ", outcome.Failed)}";
+            var msg = $"Установлено: {outcome.Installed.Count}";
+            if (outcome.Failed.Count > 0) msg += $"\nОшибки: {string.Join(", ", outcome.Failed)}";
 
             MessageBox.Show(msg, project.Title, MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -4132,7 +3917,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "������ �������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Ошибка импорта", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { HideProgress(); }
     }
@@ -4153,7 +3938,7 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         return System.Text.RegularExpressions.Regex.IsMatch(input, @"^[A-Za-z0-9._-]{2,64}$")
             ? input : null;
     }    // =====================================================================
-    //  ��� (mineflayer)
+    //  БОТ (mineflayer)
     // =====================================================================
 
     private readonly StringBuilder _botLog = new();
@@ -4177,12 +3962,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
     private string? _selectedBotId;
 
-    /// <summary>���������� ������� ���������� ���� ��� ����� ����.</summary>
+    /// <summary>Отправляет команду выбранному боту или сразу всем.</summary>
     private void SendBot(string command)
     {
         if (!_bots.AnyRunning)
         {
-            OnBotOutput("[!] ������� ��������� ����");
+            OnBotOutput("[!] сначала запустите бота");
             return;
         }
 
@@ -4204,9 +3989,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         TxtBotStatus.Text = running switch
         {
-            0 => "��� �����",
-            1 => "1 ���",
-            _ => $"{running} �����"
+            0 => "нет ботов",
+            1 => "1 бот",
+            _ => $"{running} ботов"
         };
 
         BotDot.Fill = new SolidColorBrush(running > 0
@@ -4223,14 +4008,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         var target = list.FirstOrDefault(b => b.Id == _selectedBotId);
         TxtBotTarget.Text = target is null
-            ? "����������"
-            : $"���������� � {target.Name.ToUpperInvariant()}";
+            ? "УПРАВЛЕНИЕ"
+            : $"УПРАВЛЕНИЕ · {target.Name.ToUpperInvariant()}";
 
         ItemsBots.ItemsSource = list.Select(b => new
         {
             b.Id,
             b.Name,
-            Info = $"{b.Endpoint}  �  {(b.InWorld ? "� ����" : "������������")}  �  {b.UptimeDisplay}",
+            Info = $"{b.Endpoint}  ·  {(b.InWorld ? "в мире" : "подключается")}  ·  {b.UptimeDisplay}",
             Dot = new SolidColorBrush(b.InWorld
                 ? ThemeService.CurrentAccent
                 : (Color)ColorConverter.ConvertFromString("#FACC15")),
@@ -4269,9 +4054,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var mf = BotService.IsMineflayerInstalled();
 
         TxtBotEnv.Text = node && mf
-            ? "��������� ������: Node.js � mineflayer �����������."
-            : "��� ������ ������� ������� ������� Node.js � mineflayer (~40 ��). " +
-              $"Node.js: {(node ? "����" : "���")}, mineflayer: {(mf ? "����" : "���")}.";
+            ? "Окружение готово: Node.js и mineflayer установлены."
+            : "При первом запуске лаунчер скачает Node.js и mineflayer (~40 МБ). " +
+              $"Node.js: {(node ? "есть" : "нет")}, mineflayer: {(mf ? "есть" : "нет")}.";
 
         if (string.IsNullOrWhiteSpace(TxtBotOwner.Text) && _account is not null)
             TxtBotOwner.Text = _account.Username;
@@ -4283,21 +4068,21 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (string.IsNullOrWhiteSpace(BotVersionText) && _selectedInstance is not null)
         {
-            // ����������� ������ ������, � ���� ��� ����� �������������� � ��������� �������
+            // Подставляем версию сборки, а если она новее поддерживаемых — ближайшую рабочую
             var v = _selectedInstance.McVersion;
             CbBotVersion.Text = BotService.IsVersionSupported(v)
                 ? v
                 : BotService.SuggestVersion(v) ?? "";
 
             if (!BotService.IsVersionSupported(v))
-                OnBotOutput($"[��������] Minecraft {v} ���� �� �������������� �����, " +
-                            $"������� {CbBotVersion.Text}.");
+                OnBotOutput($"[внимание] Minecraft {v} пока не поддерживается ботом, " +
+                            $"выбрана {CbBotVersion.Text}.");
         }
     }
 
     private string BotVersionText => (CbBotVersion.Text ?? "").Trim();
 
-    // ---------- ����� ��������� ���� � ��������� ���� ----------
+    // ---------- Поиск открытого мира в локальной сети ----------
 
     private readonly LanDiscoveryService _lan = new();
     private List<LanWorld> _lanWorlds = new();
@@ -4305,10 +4090,10 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     private async void BtnFindLan_Click(object sender, RoutedEventArgs e)
     {
         BtnFindLan.IsEnabled = false;
-        BtnFindLan.Content = "���";
+        BtnFindLan.Content = "Ищу…";
 
         LanResults.Visibility = Visibility.Visible;
-        TxtLanStatus.Text = "������ ��������� ���� 6 ������. ���������, ��� ��� ������ ��� ����.";
+        TxtLanStatus.Text = "Слушаю локальную сеть 6 секунд. Убедитесь, что мир открыт для сети.";
         ItemsLan.ItemsSource = null;
 
         try
@@ -4318,14 +4103,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             if (_lanWorlds.Count == 0)
             {
                 TxtLanStatus.Text =
-                    "�������� ����� �� �������.\n\n" +
-                    "���������: ���� ��������, � ���� Esc ������ �������� ��� ����, " +
-                    "� ������� � ����� �� ����� ���������� ��� � ����� ����.\n" +
-                    "���� ����� ������ ������� � �� ������� � ������� ����.";
+                    "Открытых миров не найдено.\n\n" +
+                    "Проверьте: игра запущена, в меню Esc нажата «Открыть для сети», " +
+                    "и лаунчер с игрой на одном компьютере или в одной сети.\n" +
+                    "Порт можно ввести вручную — он показан в игровом чате.";
                 return;
             }
 
-            TxtLanStatus.Text = $"������� �����: {_lanWorlds.Count}. �������, ����� ���������� �����.";
+            TxtLanStatus.Text = $"Найдено миров: {_lanWorlds.Count}. Нажмите, чтобы подставить адрес.";
 
             ItemsLan.ItemsSource = _lanWorlds.Select(w => new
             {
@@ -4334,17 +4119,17 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
                 Addr = $"{w.Address}:{w.Port}"
             }).ToList();
 
-            // ������������ ��� ����������� �����
+            // Единственный мир подставляем сразу
             if (_lanWorlds.Count == 1) ApplyLanWorld(_lanWorlds[0]);
         }
         catch (Exception ex)
         {
-            TxtLanStatus.Text = "������ ������: " + ex.Message;
+            TxtLanStatus.Text = "Ошибка поиска: " + ex.Message;
         }
         finally
         {
             BtnFindLan.IsEnabled = true;
-            BtnFindLan.Content = "����� ��� ���";
+            BtnFindLan.Content = "Найти мой мир";
         }
     }
 
@@ -4358,16 +4143,16 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
     private void ApplyLanWorld(LanWorld world)
     {
-        // ���� �� ��������� ������� ���������� ��� localhost
+        // Свой же компьютер надёжнее адресовать как localhost
         var isLocal = GetLocalIps().Contains(world.Address);
 
         TxtBotHost.Text = isLocal ? "localhost" : world.Address;
         TxtBotPort.Text = world.Port.ToString();
 
-        TxtLanStatus.Text = $"������ ��� �{world.Motd}� � ���� {world.Port}. " +
-                            "������ ������� ���������� ����.";
+        TxtLanStatus.Text = $"Выбран мир «{world.Motd}» — порт {world.Port}. " +
+                            "Теперь нажмите «Запустить бота».";
 
-        OnBotOutput($"[lan] ������ ��� �{world.Motd}� �� {TxtBotHost.Text}:{world.Port}");
+        OnBotOutput($"[lan] найден мир «{world.Motd}» на {TxtBotHost.Text}:{world.Port}");
     }
 
     private static HashSet<string> GetLocalIps()
@@ -4391,14 +4176,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         BtnBotSetup.IsEnabled = false;
         try
         {
-            OnBotOutput("[setup] �������� ���������...");
+            OnBotOutput("[setup] проверяю окружение...");
             await _bots.EnsureEnvironmentAsync(OnProgress);
             RefreshBotEnvInfo();
         }
         catch (Exception ex)
         {
-            OnBotOutput("[setup] ������: " + ex.Message);
-            MessageBox.Show(ex.Message, "��������� ���������",
+            OnBotOutput("[setup] ошибка: " + ex.Message);
+            MessageBox.Show(ex.Message, "Установка окружения",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -4415,16 +4200,16 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (!int.TryParse(TxtBotPort.Text.Trim(), out var port) || port is < 1 or > 65535)
         {
-            MessageBox.Show("������� ���������� ���� (1�65535).\n\n" +
-                            "���� ��������� ���� ����� � ���� ����� �������� ��� ����.",
-                "������������ ����", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Укажите корректный порт (1–65535).\n\n" +
+                            "Порт открытого мира виден в чате после «Открыть для сети».",
+                "Некорректный порт", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var name = TxtBotName.Text.Trim();
         if (!OfflineAccountService.TryValidateName(name, out var err))
         {
-            MessageBox.Show(err, "��� ����", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(err, "Ник бота", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -4433,13 +4218,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         try
         {
             await _bots.StartAsync(host, port, name, BotVersionText);
-            AppendLog($"��� {name} ������������ � {host}:{port}");
+            AppendLog($"Бот {name} подключается к {host}:{port}");
             RefreshBotList();
         }
         catch (Exception ex)
         {
             OnBotOutput("[error] " + ex.Message);
-            MessageBox.Show(ex.Message, "�� ������� ��������� ����",
+            MessageBox.Show(ex.Message, "Не удалось запустить бота",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             RefreshBotList();
         }
@@ -4453,8 +4238,8 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         if (BotOwner.Length == 0)
         {
-            MessageBox.Show("������� ���� ��� � ���� � �� ��� ���� ���������.",
-                "����� ���", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Укажите свой ник в игре — за кем боту следовать.",
+                "Нужен ник", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         SendBot("follow " + BotOwner);
@@ -4487,13 +4272,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     // =====================================================================
-    //  ������������
+    //  ОБСЛУЖИВАНИЕ
     // =====================================================================
 
     private List<MaintenanceService.TargetInfo> _maintTargets = new();
     private readonly HashSet<MaintenanceService.CleanTarget> _maintChecked = new();
 
-    // ---------- ����������� ����� ----------
+    // ---------- Портативный режим ----------
 
     private void RefreshPortableState()
     {
@@ -4501,21 +4286,21 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (LauncherPaths.IsPortable)
         {
-            TxtPortableState.Text = $"�������. ������: {LauncherPaths.Root}";
+            TxtPortableState.Text = $"Включён. Данные: {LauncherPaths.Root}";
             TxtPortableState.Foreground = (Brush)FindResource("Accent");
-            BtnPortableToggle.Content = "��������� ����������� �����";
+            BtnPortableToggle.Content = "Выключить портативный режим";
         }
         else
         {
             var can = LauncherPaths.CanUsePortable();
 
             TxtPortableState.Text = can
-                ? $"��������. ������: {LauncherPaths.Root}"
-                : "����������: ��� ���� �� ������ ����� � ���������. " +
-                  "���������� exe � ������� ����� ��� �� ������.";
+                ? $"Выключен. Данные: {LauncherPaths.Root}"
+                : "Недоступен: нет прав на запись рядом с лаунчером. " +
+                  "Перенесите exe в обычную папку или на флешку.";
 
             TxtPortableState.Foreground = (Brush)FindResource(can ? "FgMuted" : "Danger");
-            BtnPortableToggle.Content = "�������� ����������� �����";
+            BtnPortableToggle.Content = "Включить портативный режим";
             BtnPortableToggle.IsEnabled = can;
         }
     }
@@ -4526,20 +4311,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (_sessions.AnyRunning || _bots.AnyRunning)
         {
-            MessageBox.Show("������� ���������� ���� � �����.", "������",
+            MessageBox.Show("Сначала остановите игру и ботов.", "Занято",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var question = turnOn
-            ? "�������� ����������� �����?\n\n" +
-              $"������ �������� �:\n{Path.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
-              "����������� ���� ������� ������ � ���������?"
-            : "��������� ����������� �����?\n\n" +
-              "������ �������� � ����� ������������ (%APPDATA%).\n\n" +
-              "����������� ���� ������� ������ � ���������?";
+            ? "Включить портативный режим?\n\n" +
+              $"Данные переедут в:\n{Path.Combine(LauncherPaths.ExeDir, "MaysLauncherData")}\n\n" +
+              "Скопировать туда текущие сборки и настройки?"
+            : "Выключить портативный режим?\n\n" +
+              "Данные вернутся в папку пользователя (%APPDATA%).\n\n" +
+              "Скопировать туда текущие сборки и настройки?";
 
-        var r = MessageBox.Show(question, "����������� �����",
+        var r = MessageBox.Show(question, "Портативный режим",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 
         if (r == MessageBoxResult.Cancel) return;
@@ -4550,17 +4335,17 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
             {
                 var copied = 0;
                 LauncherPaths.MigrateTo(turnOn, _ => copied++);
-                AppendLog($"����������� �����: ����������� ������ {copied}.");
+                AppendLog($"Портативный режим: скопировано файлов {copied}.");
             }
 
             LauncherPaths.SetPortable(turnOn);
 
             MessageBox.Show(
-                "������. ��������� ������� � ���� ����� ����������� ��������.\n\n" +
-                "������� ��� ������?",
-                "����������� �����", MessageBoxButton.OK, MessageBoxImage.Information);
+                "Готово. Изменения вступят в силу после перезапуска лаунчера.\n\n" +
+                "Закрыть его сейчас?",
+                "Портативный режим", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            var restart = MessageBox.Show("������� �������?", "����������",
+            var restart = MessageBox.Show("Закрыть лаунчер?", "Перезапуск",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (restart == MessageBoxResult.Yes) Application.Current.Shutdown();
@@ -4568,20 +4353,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� ����������� �����: " + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось переключить режим: " + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private void BtnScanMaint_Click(object sender, RoutedEventArgs e) => ScanMaintenance();
 
     private void ScanMaintenance()
     {
-        TxtMaintTotal.Text = "�������";
+        TxtMaintTotal.Text = "Считаю…";
 
         _maintTargets = MaintenanceService.Enumerate();
         var total = MaintenanceService.TotalSize();
 
-        TxtMaintTotal.Text = $"����� ������ ��������: {Human(total)}  �  {LauncherPaths.Root}";
+        TxtMaintTotal.Text = $"Всего данных лаунчера: {Human(total)}  ·  {LauncherPaths.Root}";
 
         RebuildMaintList();
     }
@@ -4632,14 +4417,14 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     {
         if (_maintChecked.Count == 0)
         {
-            MessageBox.Show("��������, ��� ����� �������.", "������ �� �������",
+            MessageBox.Show("Отметьте, что нужно удалить.", "Ничего не выбрано",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("������� ���������� ����.", "���� ��������",
+            MessageBox.Show("Сначала остановите игру.", "Игра запущена",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -4648,20 +4433,20 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var dangerous = selected.Where(t => t.Dangerous).ToList();
         var totalSize = selected.Sum(t => t.Size);
 
-        var msg = "����� �������:\n\n" +
-                  string.Join("\n", selected.Select(t => $"  � {t.Title} � {t.SizeDisplay}")) +
-                  $"\n\n����������� �������� {Human(totalSize)}.";
+        var msg = "Будет удалено:\n\n" +
+                  string.Join("\n", selected.Select(t => $"  • {t.Title} — {t.SizeDisplay}")) +
+                  $"\n\nОсвободится примерно {Human(totalSize)}.";
 
         if (dangerous.Count > 0)
-            msg += "\n\n��������: ����� ���������� ���� ������ � ������ � ������. " +
-                   "������������ �� ����� ����������.";
+            msg += "\n\nВНИМАНИЕ: среди выбранного есть сборки с модами и мирами. " +
+                   "Восстановить их будет невозможно.";
 
-        if (MessageBox.Show(msg + "\n\n����������?", "������������� �������",
+        if (MessageBox.Show(msg + "\n\nПродолжить?", "Подтверждение очистки",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         var freed = MaintenanceService.Clean(selected);
 
-        // ���-�� �� ��������� ����� ���� ��������� � ������
+        // Что-то из удалённого могло быть загружено в память
         if (_maintChecked.Contains(MaintenanceService.CleanTarget.Instances))
         {
             _instances.Clear();
@@ -4674,24 +4459,24 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         _maintChecked.Clear();
         ScanMaintenance();
 
-        MessageBox.Show($"������. ����������� {Human(freed)}.", "������� ���������",
+        MessageBox.Show($"Готово. Освобождено {Human(freed)}.", "Очистка завершена",
             MessageBoxButton.OK, MessageBoxImage.Information);
 
-        AppendLog($"�������: ����������� {Human(freed)}");
+        AppendLog($"Очистка: освобождено {Human(freed)}");
     }
 
     private void BtnReinstallSoft_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "����� ������� ������ ����, ����������, �������, Java � ���.\n\n" +
-                "������ (����, ����, ���������), ������� � ��������� ����������.\n" +
-                "����� ���� ��������� ������ ��� ��������� �������.\n\n����������?",
-                "������������� �������", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+                "Будут удалены версии игры, библиотеки, ресурсы, Java и кэш.\n\n" +
+                "Сборки (моды, миры, скриншоты), аккаунт и настройки сохранятся.\n" +
+                "Файлы игры скачаются заново при следующем запуске.\n\nПродолжить?",
+                "Переустановка начисто", MessageBoxButton.YesNo, MessageBoxImage.Warning)
             != MessageBoxResult.Yes) return;
 
         if (_sessions.AnyRunning)
         {
-            MessageBox.Show("������� ���������� ����.", "���� ��������",
+            MessageBox.Show("Сначала остановите игру.", "Игра запущена",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -4709,23 +4494,23 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         ImageCacheService.ClearMemory();
         ScanMaintenance();
 
-        MessageBox.Show($"������. ����������� {Human(freed)}.\n\n" +
-                        "����� ���� ���������� ������ ��� ������� ������ܻ.",
-            "�������������", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"Готово. Освобождено {Human(freed)}.\n\n" +
+                        "Файлы игры загрузятся заново при нажатии «ИГРАТЬ».",
+            "Переустановка", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void BtnReinstallFull_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
-                "����� ������� ��� ������ ��������:\n\n" +
-                "  � ������ ����, ����������, �������\n" +
-                "  � ������ �� ����� ������ � ������\n" +
-                "  � ������� � ���������\n\n" +
-                "��� ���� �������� ���������. ������������ ������ ����� ������.\n\n����������?",
-                "������ �������������", MessageBoxButton.YesNo, MessageBoxImage.Stop)
+                "Будут удалены ВСЕ данные лаунчера:\n\n" +
+                "  • версии игры, библиотеки, ресурсы\n" +
+                "  • сборки со всеми модами и мирами\n" +
+                "  • аккаунт и настройки\n\n" +
+                "Сам файл лаунчера останется. Восстановить данные будет нельзя.\n\nПродолжить?",
+                "Полная переустановка", MessageBoxButton.YesNo, MessageBoxImage.Stop)
             != MessageBoxResult.Yes) return;
 
-        if (MessageBox.Show("����� ������� ��� ���� � ����?", "��������� �������������",
+        if (MessageBox.Show("Точно удалить все миры и моды?", "Последнее подтверждение",
                 MessageBoxButton.YesNo, MessageBoxImage.Stop) != MessageBoxResult.Yes) return;
 
         if (_sessions.AnyRunning) _sessions.StopAllAsync().GetAwaiter().GetResult();
@@ -4733,9 +4518,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         var freed = MaintenanceService.Clean(MaintenanceService.Enumerate());
 
-        MessageBox.Show($"������� {Human(freed)}.\n\n������� ������ ���������. " +
-                        "��������� ��� ������ � �� ����� ��� ����� ���������.",
-            "������", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"Удалено {Human(freed)}.\n\nЛаунчер сейчас закроется. " +
+                        "Запустите его заново — он будет как после установки.",
+            "Готово", MessageBoxButton.OK, MessageBoxImage.Information);
 
         Application.Current.Shutdown();
     }
@@ -4746,12 +4531,12 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         var isExe = exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
 
         var r = MessageBox.Show(
-            "��������� ������� MaysLauncher � ����������?\n\n" +
-            $"����� ������� ����� ������:\n{LauncherPaths.Root}\n\n" +
-            (isExe ? "��� � ������� � ��� ���� ��������.\n���� � ������� ������ ������.\n"
-                   : "���� �������� ������� ������ (������� �� ��� exe).\n") +
-            "\n��� �������� ����������.",
-            "�������� ��������", MessageBoxButton.YesNoCancel, MessageBoxImage.Stop);
+            "Полностью удалить MaysLauncher с компьютера?\n\n" +
+            $"Будет удалена папка данных:\n{LauncherPaths.Root}\n\n" +
+            (isExe ? "«Да» — удалить и сам файл лаунчера.\n«Нет» — удалить только данные.\n"
+                   : "Файл лаунчера удалить нельзя (запущен не как exe).\n") +
+            "\nЭто действие необратимо.",
+            "Удаление лаунчера", MessageBoxButton.YesNoCancel, MessageBoxImage.Stop);
 
         if (r == MessageBoxResult.Cancel) return;
 
@@ -4759,9 +4544,9 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
 
         if (MessageBox.Show(
                 removeExe
-                    ? "������� ������ ��� ������ � ����, ����� ���������. �����������?"
-                    : "������� ������ ��� ������ � ���������. �����������?",
-                "��������� �������������", MessageBoxButton.YesNo, MessageBoxImage.Stop)
+                    ? "Лаунчер удалит все данные и себя, затем закроется. Подтвердить?"
+                    : "Лаунчер удалит все данные и закроется. Подтвердить?",
+                "Последнее подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Stop)
             != MessageBoxResult.Yes) return;
 
         try
@@ -4776,13 +4561,13 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
         }
         catch (Exception ex)
         {
-            MessageBox.Show("�� ������� ��������� ��������: " + ex.Message,
-                "������", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Не удалось запустить удаление: " + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private static string Human(long bytes)
     {
-        string[] units = { "�", "��", "��", "��" };
+        string[] units = { "Б", "КБ", "МБ", "ГБ" };
         double v = bytes;
         var i = 0;
         while (v >= 1024 && i < units.Length - 1) { v /= 1024; i++; }
@@ -4790,5 +4575,5 @@ private void SetAccount(MinecraftAccount acc, bool refreshSkin)
     }
 
     private static string Shorten(string s, int max) =>
-        s.Length <= max ? s : "�" + s[^(max - 1)..];
+        s.Length <= max ? s : "…" + s[^(max - 1)..];
 }

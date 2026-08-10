@@ -72,9 +72,6 @@ public sealed class LauncherSettings
     /// <summary>Сохранённая пользовательская цветовая схема (JSON).</summary>
     [JsonPropertyName("customTheme")] public string CustomThemeJson { get; set; } = "";
 
-    /// <summary>Скрыть вкладку «Стримы» и отключить запросы к Twitch API.</summary>
-    [JsonPropertyName("hideStreams")] public bool HideStreams { get; set; }
-
     public static int RecommendedMaxMemory()
     {
         try

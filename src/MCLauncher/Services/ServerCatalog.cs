@@ -98,4 +98,19 @@ public static class ServerCatalog
     }
 }
 
+public class LauncherConfig
+{
+    public List<SponsorServerEntry> SponsorServers { get; set; } = new();
+}
+
+public class SponsorServerEntry
+{
+    public string Name { get; set; } = "";
+    public string Address { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Site { get; set; } = "";
+    public string RequiredVersion { get; set; } = "";
+    public bool Featured { get; set; } = true;
+}
+
 
