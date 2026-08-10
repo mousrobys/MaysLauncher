@@ -70,9 +70,19 @@ public sealed class TwitchAuthService : IDisposable
 
     private void StartLocalServer()
     {
-        _listener = new HttpListener();
-        _listener.Prefixes.Add(RedirectUri);
-        _listener.Start();
+        try
+        {
+            _listener = new HttpListener();
+            _listener.Prefixes.Add("http://localhost:8080/");
+            _listener.Start();
+            Log.Info("Twitch callback server started on port 8080");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Failed to start HttpListener: {ex.Message}");
+            _tcs?.TrySetResult("");
+            return;
+        }
 
         Task.Run(async () =>
         {
@@ -80,12 +90,13 @@ public sealed class TwitchAuthService : IDisposable
             {
                 var context = await _listener.GetContextAsync().ConfigureAwait(false);
                 var request = context.Request;
+                var url = request.Url!;
 
                 string? token = null;
 
-                if (request.Url!.Query.Contains("token="))
+                if (url.Query.Contains("token="))
                 {
-                    var query = request.Url.Query.TrimStart('?');
+                    var query = url.Query.TrimStart('?');
                     foreach (var pair in query.Split('&'))
                     {
                         var kv = pair.Split('=');
@@ -130,16 +141,21 @@ public sealed class TwitchAuthService : IDisposable
         return @"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Twitch Auth</title></head>
 <body style='font-family:Segoe UI,sans-serif;background:#0e0e10;color:#fff;text-align:center;padding-top:80px'>
 <h1 style='color:#9146ff'>Перехват токена...</h1>
-<p>Пожалуйста, подождите...</p>
+<p id='status'>Ожидание ответа от Twitch...</p>
 <script>
-var hash = window.location.hash.substring(1);
-if (hash && hash.includes('access_token=')) {
-    var params = new URLSearchParams(hash);
-    var token = params.get('access_token');
-    if (token) {
-        window.location.href = '/?token=' + encodeURIComponent(token);
+(function() {
+    var hash = window.location.hash.substring(1);
+    if (hash && hash.indexOf('access_token=') !== -1) {
+        var params = new URLSearchParams(hash);
+        var token = params.get('access_token');
+        if (token) {
+            document.getElementById('status').textContent = 'Токен получен! Отправка...';
+            window.location.href = '/?token=' + encodeURIComponent(token);
+            return;
+        }
     }
-}
+    document.getElementById('status').textContent = 'Ожидание токена... (hash: ' + hash + ')';
+})();
 </script>
 </body></html>";
     }
@@ -165,12 +181,19 @@ if (hash && hash.includes('access_token=')) {
 
     private static void OpenBrowser()
     {
+        const string clientId = "1w4str5herfmk8s6ugx6qbh12y95yi";
+        const string redirectUri = "http://localhost:8080/";
         var scope = Uri.EscapeDataString("user:read:email");
-        var url = $"{AuthUrl}?client_id={ClientId}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=token&scope={scope}";
+        var authUrl = $"https://id.twitch.tv/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=token&scope={scope}";
 
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = authUrl,
+                UseShellExecute = true
+            });
+            Log.Info($"Opening Twitch auth URL: {authUrl}");
         }
         catch (Exception ex)
         {
