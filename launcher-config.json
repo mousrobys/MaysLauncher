@@ -1,12 +1,21 @@
 {
   "news": [
     {
-      "id": "5c496474",
-      "title": "Новая новость",
-      "content": "Текст новости...",
-      "date": "2026-08-10",
-      "important": false
+      "id": "news001",
+      "title": "Добро пожаловать в MaysLauncher!",
+      "content": "Это первая новость лаунчера. Здесь будут отображаться все важные обновления и новости.",
+      "date": "2025-08-10",
+      "important": true
     }
   ],
-  "sponsorServers": []
+  "sponsorServers": [
+    {
+      "name": "Akimine",
+      "address": "mc.akimine.ru",
+      "description": "Выживание и анархия",
+      "site": "https://akimine.ru",
+      "requiredVersion": "1.20.4",
+      "featured": true
+    }
+  ]
 }

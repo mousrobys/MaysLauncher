@@ -43,34 +43,23 @@ public class NewsService
     {
         try
         {
-            var response = await _http.GetStringAsync(ConfigUrl);
-            var config = JsonSerializer.Deserialize<LauncherConfig>(response, new JsonSerializerOptions
+            var response = await _http.GetStringAsync(FallbackConfigUrl);
+            var doc = JsonDocument.Parse(response);
+            var base64 = doc.RootElement.GetProperty("content").GetString();
+            if (base64 != null)
             {
-                PropertyNameCaseInsensitive = true
-            });
-            return config ?? new LauncherConfig();
-        }
-        catch
-        {
-            try
-            {
-                var response = await _http.GetStringAsync(FallbackConfigUrl);
-                var doc = JsonDocument.Parse(response);
-                var base64 = doc.RootElement.GetProperty("content").GetString();
-                if (base64 != null)
+                var bytes = Convert.FromBase64String(base64.Replace("\n", "").Replace("\r", ""));
+                var json = System.Text.Encoding.UTF8.GetString(bytes);
+                var config = JsonSerializer.Deserialize<LauncherConfig>(json, new JsonSerializerOptions
                 {
-                    var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64.Replace("\n", "")));
-                    var config = JsonSerializer.Deserialize<LauncherConfig>(json, new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
-                    return config ?? new LauncherConfig();
-                }
+                    PropertyNameCaseInsensitive = true
+                });
+                return config ?? new LauncherConfig();
             }
-            catch (Exception ex)
-            {
-                Log.Warn("Не удалось загрузить конфиг новостей: " + ex.Message);
-            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Не удалось загрузить конфиг новостей: " + ex.Message);
         }
         return new LauncherConfig();
     }
