@@ -37,13 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="icon=logo.ico.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="icon=logo.ico.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Resource Include="logo.ico" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1719,6 +1719,14 @@
                             <TextBox x:Name="TxtModSearch" Grid.Column="0" Height="38"
                                      KeyDown="TxtModSearch_KeyDown"
                                      TextChanged="TxtModSearch_TextChanged"
+                                     FontFamily="Segoe UI"
+                                     FontSize="13"
+                                     Foreground="{DynamicResource Fg}"
+                                     Background="{DynamicResource Bg}"
+                                     BorderBrush="{DynamicResource BorderBrushDark}"
+                                     BorderThickness="1"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
                                      ToolTip="Название мода. Пустой запрос покажет самые популярные."/>
 
                             <ComboBox x:Name="CbModType" Grid.Column="1" Width="146" Height="38" Margin="8,0,0,0"

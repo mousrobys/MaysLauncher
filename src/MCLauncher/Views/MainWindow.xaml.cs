@@ -2835,16 +2835,18 @@ public partial class MainWindow : Window
     {
         if (!IsLoaded) return;
         _searchDebounceTimer?.Stop();
-        _searchDebounceTimer = new System.Timers.Timer(500);
+        _searchDebounceTimer = new System.Timers.Timer(600);
         _searchDebounceTimer.Elapsed += (_, _) =>
         {
             _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Dispose();
             Dispatcher.Invoke(() =>
             {
-                if (!string.IsNullOrWhiteSpace(TxtModSearch.Text))
+                if (TxtModSearch.Text.Length >= 2)
                     RunModSearchFromStart();
             });
         };
+        _searchDebounceTimer.AutoReset = false;
         _searchDebounceTimer.Start();
     }
 
