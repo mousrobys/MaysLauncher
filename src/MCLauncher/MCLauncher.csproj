@@ -9,7 +9,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MaysLauncher</AssemblyName>
     <RootNamespace>MCLauncher</RootNamespace>
-    <ApplicationIcon>icon=logo.ico.ico</ApplicationIcon>
     <Version>1.2.2</Version>
     <Product>MaysLauncher</Product>
     <Company>Mays</Company>
@@ -35,6 +34,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="icon=logo.ico.ico" />
   </ItemGroup>
 
   <ItemGroup>
