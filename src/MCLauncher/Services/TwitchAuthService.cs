@@ -1,9 +1,7 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace MCLauncher.Services;
 
@@ -31,14 +29,12 @@ public class TwitchStreamInfo
 public sealed class TwitchAuthService : IDisposable
 {
     private const string ClientId = "1w4str5herfmk8s6ugx6qbh12y95yi";
-    private const string RedirectUri = "http://localhost:8080";
+    private const string RedirectUri = "http://localhost:8080/";
     private const string AuthUrl = "https://id.twitch.tv/oauth2/authorize";
-    private const string TokenUrl = "https://id.twitch.tv/oauth2/validate";
     private const int ListenerPort = 8080;
 
     private HttpListener? _listener;
     private TaskCompletionSource<string>? _tcs;
-    private CancellationTokenSource? _cts;
 
     public bool IsLoggingIn { get; private set; }
 
@@ -47,17 +43,18 @@ public sealed class TwitchAuthService : IDisposable
         if (IsLoggingIn) return null;
         IsLoggingIn = true;
         _tcs = new TaskCompletionSource<string>();
-        _cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
         try
         {
             StartLocalServer();
             OpenBrowser();
 
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            cts.Token.Register(() => _tcs.TrySetResult(""));
             var token = await _tcs.Task.ConfigureAwait(false);
-            if (string.IsNullOrEmpty(token)) return null;
 
-            return await ValidateAndBuildAccountAsync(token).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(token)) return null;
+            return await FetchUserProfileAsync(token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -74,7 +71,7 @@ public sealed class TwitchAuthService : IDisposable
     private void StartLocalServer()
     {
         _listener = new HttpListener();
-        _listener.Prefixes.Add($"{RedirectUri}/");
+        _listener.Prefixes.Add(RedirectUri);
         _listener.Start();
 
         Task.Run(async () =>
@@ -83,25 +80,42 @@ public sealed class TwitchAuthService : IDisposable
             {
                 var context = await _listener.GetContextAsync().ConfigureAwait(false);
                 var request = context.Request;
-                var token = ExtractTokenFromUrl(request.Url?.ToString() ?? "");
 
-                var response = context.Response;
-                var html = @"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Twitch Auth</title>
-<style>body{font-family:Segoe UI,sans-serif;background:#0e0e10;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}
-.container{padding:40px;border-radius:12px;background:#18181b;box-shadow:0 4px 24px rgba(0,0,0,.5)}
-h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
-.btn{display:inline-block;background:#9146ff;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;transition:background .2s}
-.btn:hover{background:#772ce8}</style></head><body><div class='container'>
-<h1>Авторизация успешна!</h1><p>Токен получен. Можно вернуться в лаунчер.</p>
-<a class='btn' href='#' onclick='window.close()'>Вернуться в приложение</a>
-</div></body></html>";
-                var buffer = Encoding.UTF8.GetBytes(html);
-                response.ContentLength64 = buffer.Length;
-                response.ContentType = "text/html; charset=utf-8";
-                await response.OutputStream.WriteAsync(buffer).ConfigureAwait(false);
-                response.Close();
+                string? token = null;
 
-                _tcs?.TrySetResult(token ?? "");
+                if (request.Url!.Query.Contains("token="))
+                {
+                    var query = request.Url.Query.TrimStart('?');
+                    foreach (var pair in query.Split('&'))
+                    {
+                        var kv = pair.Split('=');
+                        if (kv.Length == 2 && kv[0] == "token")
+                        {
+                            token = Uri.UnescapeDataString(kv[1]);
+                            break;
+                        }
+                    }
+                }
+
+                if (token == null)
+                {
+                    var html = GetInterceptPage();
+                    var buffer = Encoding.UTF8.GetBytes(html);
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    context.Response.ContentLength64 = buffer.Length;
+                    await context.Response.OutputStream.WriteAsync(buffer).ConfigureAwait(false);
+                    context.Response.Close();
+                }
+                else
+                {
+                    var html = GetSuccessPage();
+                    var buffer = Encoding.UTF8.GetBytes(html);
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    context.Response.ContentLength64 = buffer.Length;
+                    await context.Response.OutputStream.WriteAsync(buffer).ConfigureAwait(false);
+                    context.Response.Close();
+                    _tcs?.TrySetResult(token);
+                }
             }
             catch (Exception ex)
             {
@@ -111,19 +125,40 @@ h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
         });
     }
 
-    private string? ExtractTokenFromUrl(string url)
+    private static string GetInterceptPage()
     {
-        var match = Regex.Match(url, @"access_token=([^&]+)");
-        return match.Success ? match.Groups[1].Value : null;
+        return @"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Twitch Auth</title></head>
+<body style='font-family:Segoe UI,sans-serif;background:#0e0e10;color:#fff;text-align:center;padding-top:80px'>
+<h1 style='color:#9146ff'>Перехват токена...</h1>
+<p>Пожалуйста, подождите...</p>
+<script>
+var hash = window.location.hash.substring(1);
+if (hash && hash.includes('access_token=')) {
+    var params = new URLSearchParams(hash);
+    var token = params.get('access_token');
+    if (token) {
+        window.location.href = '/?token=' + encodeURIComponent(token);
+    }
+}
+</script>
+</body></html>";
+    }
+
+    private static string GetSuccessPage()
+    {
+        return @"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Twitch Auth</title>
+<style>body{font-family:Segoe UI,sans-serif;background:#0e0e10;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}
+.container{padding:40px;border-radius:12px;background:#18181b}h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
+.btn{display:inline-block;background:#9146ff;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px}
+.btn:hover{background:#772ce8}</style></head><body><div class='container'>
+<h1>Авторизация успешна!</h1><p>Токен получен. Можно вернуться в лаунчер.</p>
+<a class='btn' href='#' onclick='window.close()'>Вернуться в приложение</a>
+</div></body></html>";
     }
 
     private void StopLocalServer()
     {
-        try
-        {
-            _listener?.Stop();
-            _listener?.Close();
-        }
+        try { _listener?.Stop(); _listener?.Close(); }
         catch { }
         _listener = null;
     }
@@ -131,8 +166,7 @@ h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
     private static void OpenBrowser()
     {
         var scope = Uri.EscapeDataString("user:read:email");
-        var state = Guid.NewGuid().ToString("N")[..16];
-        var url = $"{AuthUrl}?client_id={ClientId}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=token&scope={scope}&state={state}";
+        var url = $"{AuthUrl}?client_id={ClientId}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=token&scope={scope}";
 
         try
         {
@@ -144,53 +178,50 @@ h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
         }
     }
 
-    private static async Task<TwitchAccount?> ValidateAndBuildAccountAsync(string accessToken)
+    private static async Task<TwitchAccount?> FetchUserProfileAsync(string accessToken)
     {
         try
         {
             using var http = new HttpClient();
-            http.DefaultRequestHeaders.Add("Authorization", $"OAuth {accessToken}");
-            http.DefaultRequestHeaders.Add("User-Agent", "MaysLauncher/1.0");
+            http.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
+            http.DefaultRequestHeaders.Add("Client-Id", ClientId);
+            http.DefaultRequestHeaders.Add("User-Agent", "MaysLauncher/1.0 (+windows)");
 
-            var response = await http.GetAsync("https://id.twitch.tv/oauth2/validate").ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return null;
+            var response = await http.GetAsync("https://api.twitch.tv/helix/users").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Log.Warn($"Twitch API error: {response.StatusCode} - {error}");
+                return null;
+            }
 
             var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var doc = JsonDocument.Parse(json);
 
-            var login = doc.RootElement.GetProperty("login").GetString() ?? "";
-            var userId = doc.RootElement.GetProperty("user_id").GetString() ?? "";
-
-            string avatar = "";
-            try
+            if (!doc.RootElement.TryGetProperty("data", out var data) || data.GetArrayLength() == 0)
             {
-                using var http2 = new HttpClient();
-                http2.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
-                http2.DefaultRequestHeaders.Add("Client-Id", ClientId);
-                var resp = await http2.GetAsync($"https://api.twitch.tv/helix/users?id={userId}").ConfigureAwait(false);
-                if (resp.IsSuccessStatusCode)
-                {
-                    var j = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    var d = JsonDocument.Parse(j);
-                    if (d.RootElement.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
-                    {
-                        avatar = data[0].GetProperty("profile_image_url").GetString() ?? "";
-                    }
-                }
+                Log.Warn("Twitch API: no user data returned");
+                return null;
             }
-            catch { }
+
+            var user = data[0];
+            var login = user.GetProperty("login").GetString() ?? "";
+            var displayName = user.GetProperty("display_name").GetString() ?? login;
+            var userId = user.GetProperty("id").GetString() ?? "";
+            var avatar = user.TryGetProperty("profile_image_url", out var img) ? img.GetString() ?? "" : "";
 
             return new TwitchAccount
             {
-                Username = login,
+                Username = displayName,
                 UserId = userId,
                 AccessToken = accessToken,
-                ProfileImageUrl = avatar
+                ProfileImageUrl = avatar,
+                AuthenticatedAt = DateTimeOffset.UtcNow
             };
         }
         catch (Exception ex)
         {
-            Log.Warn($"Twitch validate error: {ex.Message}");
+            Log.Warn($"Twitch fetch user error: {ex.Message}");
             return null;
         }
     }
@@ -198,7 +229,5 @@ h1{color:#9146ff;margin-bottom:8px}p{color:#adadb8;margin-bottom:24px}
     public void Dispose()
     {
         StopLocalServer();
-        _cts?.Cancel();
-        _cts?.Dispose();
     }
 }
