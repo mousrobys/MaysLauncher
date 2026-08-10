@@ -33,6 +33,12 @@ public partial class App : Application
         ServicePointManager.DefaultConnectionLimit = 64;
         ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
 
+        try
+        {
+            System.Net.ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        }
+        catch { }
+
         var handler = new SocketsHttpHandler
         {
             AutomaticDecompression = DecompressionMethods.All,

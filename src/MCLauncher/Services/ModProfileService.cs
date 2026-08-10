@@ -185,16 +185,16 @@ public sealed class ModConflict
 }
 
 /// <summary>Данные о моде, прочитанные прямо из jar.</summary>
-public sealed record LocalModInfo
+public sealed class LocalModInfo
 {
-    public required string FilePath { get; init; }
-    public required string FileName { get; init; }
-    public string ModId { get; init; } = "";
-    public string Name { get; init; } = "";
-    public string Version { get; init; } = "";
-    public LoaderKind Loader { get; init; } = LoaderKind.Vanilla;
-    public List<string> GameVersions { get; init; } = new();
-    public bool Enabled { get; init; } = true;
+    public string FilePath { get; set; }
+    public string FileName { get; set; }
+    public string ModId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Version { get; set; } = "";
+    public LoaderKind Loader { get; set; } = LoaderKind.Vanilla;
+    public List<string> GameVersions { get; set; } = new List<string>();
+    public bool Enabled { get; set; } = true;
 }
 
 /// <summary>Чтение метаданных модов и поиск конфликтов.</summary>
@@ -230,13 +230,11 @@ public static class ModInspector
                 // У Quilt структура вложена в quilt_loader
                 if (root.TryGetProperty("quilt_loader", out var ql)) root = ql;
 
-                return info with
-                {
-                    ModId = Str(root, "id") ?? "",
-                    Name = Str(root, "name") ?? Path.GetFileNameWithoutExtension(jarPath),
-                    Version = Str(root, "version") ?? "",
-                    Loader = LoaderKind.Fabric
-                };
+                info.ModId = Str(root, "id") ?? "";
+                info.Name = Str(root, "name") ?? Path.GetFileNameWithoutExtension(jarPath);
+                info.Version = Str(root, "version") ?? "";
+                info.Loader = LoaderKind.Fabric;
+                return info;
             }
 
             // Forge / NeoForge
@@ -248,15 +246,13 @@ public static class ModInspector
                 using var reader = new StreamReader(toml.Open());
                 var text = reader.ReadToEnd();
 
-                return info with
-                {
-                    ModId = TomlValue(text, "modId"),
-                    Name = TomlValue(text, "displayName") is { Length: > 0 } dn
-                        ? dn : Path.GetFileNameWithoutExtension(jarPath),
-                    Version = TomlValue(text, "version"),
-                    Loader = toml.FullName.Contains("neoforge", StringComparison.OrdinalIgnoreCase)
-                        ? LoaderKind.NeoForge : LoaderKind.Forge
-                };
+                info.ModId = TomlValue(text, "modId");
+                info.Name = TomlValue(text, "displayName") is { Length: > 0 } dn
+                    ? dn : Path.GetFileNameWithoutExtension(jarPath);
+                info.Version = TomlValue(text, "version");
+                info.Loader = toml.FullName.Contains("neoforge", StringComparison.OrdinalIgnoreCase)
+                    ? LoaderKind.NeoForge : LoaderKind.Forge;
+                return info;
             }
         }
         catch (Exception ex)
@@ -264,7 +260,8 @@ public static class ModInspector
             Log.Warn($"Чтение мода {Path.GetFileName(jarPath)}: {ex.Message}");
         }
 
-        return info with { Name = Path.GetFileNameWithoutExtension(jarPath) };
+        info.Name = Path.GetFileNameWithoutExtension(jarPath);
+        return info;
     }
 
     private static string? Str(JsonElement el, string name) =>

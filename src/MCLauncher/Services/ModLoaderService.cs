@@ -280,6 +280,12 @@ public sealed class ModLoaderService
 
         Report($"Запускаю установщик {name} (это может занять до минуты)...");
 
+        if (!File.Exists(java.JavaConsoleExe))
+        {
+            throw new FileNotFoundException(
+                $"Java не найдена: {java.JavaConsoleExe}. Установите Java {JavaService.RequiredJavaFor(mcVersion)}+ или скачайте через лаунчер.");
+        }
+
         var psi = new ProcessStartInfo(java.JavaConsoleExe)
         {
             WorkingDirectory = InstallRoot,
@@ -299,7 +305,16 @@ public sealed class ModLoaderService
         proc.OutputDataReceived += (_, e) => { if (e.Data is not null) output.AppendLine(e.Data); };
         proc.ErrorDataReceived += (_, e) => { if (e.Data is not null) output.AppendLine(e.Data); };
 
-        proc.Start();
+        try
+        {
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Не удалось запустить установщик: {ex.Message}. Java: {java.JavaConsoleExe}");
+        }
+
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
 
