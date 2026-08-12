@@ -1,8 +1,8 @@
-<Window x:Class="MCLauncher.Views.ThemeEditorDialog"
+﻿<Window x:Class="MCLauncher.Views.ThemeEditorDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Своя цветовая схема"
-        Icon="pack://application:,,,/icon=logo.ico.ico"
+        
         Height="560" Width="620"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"

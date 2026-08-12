@@ -148,6 +148,16 @@
                                 </StackPanel>
                             </RadioButton>
 
+                            <RadioButton x:Name="NavSkins" Style="{StaticResource NavToggle}"
+                                         Checked="Nav_Checked" Tag="9">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                    <TextBlock Text="Скины" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                </StackPanel>
+                            </RadioButton>
+
                             <RadioButton x:Name="NavSettings" Style="{StaticResource NavToggle}"
                                          Checked="Nav_Checked" Tag="4">
                                 <StackPanel Orientation="Horizontal">
@@ -2207,6 +2217,180 @@
                                 </Grid>
                             </Grid>
                         </Grid>
+                    </Grid>
+
+                    <!-- ============ 9. СКИНЫ ============ -->
+                    <Grid x:Name="PageSkins" Grid.Row="0" Margin="20,12,20,0" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Скины" Style="{StaticResource H1}"/>
+                            <TextBlock x:Name="TxtSkinTabStatus" Grid.Column="1" VerticalAlignment="Center"
+                                       Margin="16,0,0,0" TextWrapping="Wrap" MaxWidth="380"
+                                       Foreground="{DynamicResource FgMuted}" FontSize="11"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Border x:Name="SkinsPreviewBorder" Width="48" Height="48" CornerRadius="8" Background="#262B34" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" ClipToBounds="True">
+                                    <Image x:Name="ImgSkinsPreview" Stretch="UniformToFill"/>
+                                </Border>
+                                <Button x:Name="BtnApplySkinNew" Style="{StaticResource AccentButton}"
+                                        Content="Применить" Margin="12,0,0,0" Height="36" Padding="16,0"
+                                        Click="BtnApplySkin_Click" IsEnabled="False"/>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                            <RadioButton x:Name="TabSkinLibrary" Content="Библиотека" Style="{StaticResource NavToggle}" IsChecked="True" Checked="TabSkin_Checked" Tag="library" Margin="0,0,6,0"/>
+                            <RadioButton x:Name="TabSkinSearch" Content="Поиск по нику" Style="{StaticResource NavToggle}" Checked="TabSkin_Checked" Tag="search" Margin="0,0,6,0"/>
+                            <RadioButton x:Name="TabSkinGallery" Content="Галерея" Style="{StaticResource NavToggle}" Checked="TabSkin_Checked" Tag="gallery" Margin="0,0,6,0"/>
+                            <RadioButton x:Name="TabSkinLocal" Content="Свои скины" Style="{StaticResource NavToggle}" Checked="TabSkin_Checked" Tag="local"/>
+                        </StackPanel>
+                        <Grid Grid.Row="2">
+                            <!-- Библиотека -->
+                            <Grid x:Name="PanelSkinLibrary" Visibility="Visible">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Популярные скины" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,0,0,8"/>
+                                <WrapPanel x:Name="SkinLibraryPanel" Grid.Row="1"/>
+                            </Grid>
+                            <!-- Поиск -->
+                            <Grid x:Name="PanelSkinSearch" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtSkinSearch" Grid.Column="0" Height="36" KeyDown="TxtSkinSearch_KeyDown" Background="{DynamicResource Panel}" Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource Border}" Padding="10,0" VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="1" Style="{StaticResource AccentButton}" Content="Найти" Margin="8,0,0,0" Click="BtnSearchSkins_Click" Height="36" Padding="16,0"/>
+                                </Grid>
+                                <TextBlock x:Name="TxtSkinSearchStatus" Grid.Row="1" Text="Введите ник игрока (например, Dream) — ищем его скин на серверах Mojang" Foreground="{DynamicResource FgMuted}" FontSize="11" Margin="0,0,0,8"/>
+                                <Border Grid.Row="2" Style="{StaticResource Card}">
+                                    <DataGrid x:Name="SkinsSearchGrid" AutoGenerateColumns="False"
+                                              GridLinesVisibility="None" CanUserAddRows="False" IsReadOnly="True"
+                                              HeadersVisibility="Column" SelectionUnit="FullRow"
+                                              Background="Transparent" BorderThickness="0"
+                                              RowHeight="42" ColumnHeaderHeight="40">
+                                        <DataGrid.ColumnHeaderStyle>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#22262E"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+                                                <Setter Property="FontSize" Value="11"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                <Setter Property="Padding" Value="10,0"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                            </Style>
+                                        </DataGrid.ColumnHeaderStyle>
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#232833"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#1F3A2A"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.CellStyle>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Padding" Value="10,0"/>
+                                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.CellStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Название" Binding="{Binding Name}" Width="*"/>
+                                            <DataGridTextColumn Header="Источник" Binding="{Binding Source}" Width="80"/>
+                                            <DataGridTemplateColumn Header="" Width="110">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource IconButton}" Content="В библиотеку"
+                                                                Click="BtnDownloadSkin_Click" Tag="{Binding Id}"
+                                                                Background="Transparent" BorderThickness="0" Padding="8,4"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+                            </Grid>
+                            <!-- Галерея -->
+                            <Grid x:Name="PanelSkinGallery" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Каталог скинов MineSkin — листайте вниз, новые подгружаются автоматически"
+                                           Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="0,0,0,8"/>
+                                <ScrollViewer x:Name="GalleryScroller" Grid.Row="1"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              ScrollChanged="GalleryScroll_Changed"
+                                              Background="#161A21">
+                                    <WrapPanel x:Name="GalleryPanel" Margin="10,10,8,10"/>
+                                </ScrollViewer>
+                                <TextBlock x:Name="TxtGalleryStatus" Grid.Row="1" Text="Загружаю скины…"
+                                           Foreground="{DynamicResource FgMuted}" FontSize="11"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                            <!-- Свои скины -->
+                            <Grid x:Name="PanelSkinLocal" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Style="{StaticResource BaseButton}" Content="Импортировать скин" Click="BtnImportSkin_Click" Height="36" Padding="16,0" HorizontalAlignment="Left"/>
+                                    <Button Grid.Column="1" Style="{StaticResource IconButton}" Content="🔄" Click="BtnRefreshLocalSkins_Click" Height="36" Width="36"/>
+                                </Grid>
+                                <WrapPanel x:Name="LocalSkinsPanel" Grid.Row="1"/>
+                            </Grid>
+                        </Grid>
+                        <Border x:Name="SkinPreviewPanelNew" Grid.Row="3" Style="{StaticResource Card}" Margin="0,10,0,0" Padding="12" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="64" Height="64" CornerRadius="6" Background="#262B34" ClipToBounds="True">
+                                    <Image x:Name="ImgNewSkinPreview" Stretch="UniformToFill"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtNewSkinName" Text="" FontWeight="SemiBold" FontSize="13"/>
+                                    <TextBlock x:Name="TxtNewSkinInfo" Text="" Foreground="{DynamicResource FgMuted}" FontSize="11" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
                     </Grid>
 
                     <!-- ============ НИЖНЯЯ ПАНЕЛЬ ============ -->

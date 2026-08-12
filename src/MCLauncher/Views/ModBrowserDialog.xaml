@@ -1,9 +1,9 @@
-<Window x:Class="MCLauncher.Views.ModBrowserDialog"
+﻿<Window x:Class="MCLauncher.Views.ModBrowserDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Страница мода"
-        Icon="pack://application:,,,/icon=logo.ico.ico"
+        
         Height="720" Width="1060"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"

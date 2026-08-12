@@ -27,6 +27,11 @@
             <SolidColorBrush x:Key="Fg" Color="{StaticResource TextColor}"/>
             <SolidColorBrush x:Key="FgMuted" Color="{StaticResource TextMutedColor}"/>
             <SolidColorBrush x:Key="Danger" Color="{StaticResource DangerColor}"/>
+            <SolidColorBrush x:Key="ConsoleBg" Color="#0D1117"/>
+            <SolidColorBrush x:Key="ConsoleFg" Color="#E6EDF3"/>
+            <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}"/>
+            <SolidColorBrush x:Key="Muted" Color="{StaticResource TextMutedColor}"/>
+            <SolidColorBrush x:Key="Border" Color="{StaticResource BorderColor}"/>
 
             <!-- ============ БАЗОВЫЙ ТЕКСТ ============ -->
             <Style TargetType="TextBlock">
