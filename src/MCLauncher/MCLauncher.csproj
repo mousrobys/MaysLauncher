@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MaysLauncher</AssemblyName>
     <RootNamespace>MCLauncher</RootNamespace>
-    <Version>1.2.3</Version>
+    <Version>1.2.4</Version>
     <Product>MaysLauncher</Product>
     <Company>Mays</Company>
     <AssemblyTitle>MaysLauncher</AssemblyTitle>
@@ -39,6 +39,11 @@
 
   <ItemGroup>
     <Resource Include="icon=logo.ico.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\skins_catalog.json" />
+    <EmbeddedResource Include="Assets\Skins\*.png" />
   </ItemGroup>
 
   <ItemGroup>

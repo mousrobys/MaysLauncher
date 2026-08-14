@@ -230,8 +230,8 @@ public sealed class SkinService
             throw new InvalidDataException(
                 $"Неверный размер скина: {width}x{height}. Требуется 64x64 (или 64x32).");
 
-        if (data.Length > 24 * 1024)
-            throw new InvalidDataException("Файл скина слишком большой (максимум 24 КБ).");
+        if (data.Length > 512 * 1024)
+            throw new InvalidDataException("Файл скина слишком большой (максимум 512 КБ).");
     }
 
     private static string DescribeSkinError(System.Net.HttpStatusCode code, string body)

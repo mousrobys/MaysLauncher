@@ -1895,6 +1895,33 @@ public partial class MainWindow : Window
 
             NotifyFinished("Загрузка завершена", $"«{inst.Name}» готова к запуску");
 
+            // 6.5. Скин оффлайн-аккаунта через CustomSkinLoader
+            if (_account.IsOffline)
+            {
+                var skinFile = OfflineSkinService.FindAccountSkin(_account.Username);
+                if (skinFile != null)
+                {
+                    if (OfflineSkinService.IsCslSupported(inst))
+                    {
+                        SetStage("Подготавливаю скин (CustomSkinLoader)...");
+                        var cslOk = await OfflineSkinService.EnsureCslModAsync(inst, ct);
+                        if (cslOk)
+                        {
+                            OfflineSkinService.SyncToInstance(inst, _account.Username, skinFile);
+                            AppendLog($"Оффлайн-скин «{_account.Username}» подготовлен через CustomSkinLoader.");
+                        }
+                        else
+                        {
+                            AppendLog("Не удалось подготовить CustomSkinLoader — скин не будет показан.");
+                        }
+                    }
+                    else
+                    {
+                        AppendLog("Внимание: сборка без модлоадера (Fabric/Forge) — оффлайн-скин показан не будет.");
+                    }
+                }
+            }
+
             // 7. Запуск
             SetStage("Запускаю Minecraft...");
             InstanceService.EnsureFolders(inst);
@@ -2235,19 +2262,44 @@ public partial class MainWindow : Window
     {
         try
         {
-            var body = await _skins.GetBodyRenderAsync(acc);
-            var avatar = await _skins.GetAvatarAsync(acc, 72);
+            ImageSource? localBody = null;
+            ImageSource? localAvatar = null;
+            if (acc.IsOffline)
+            {
+                var localFile = OfflineSkinService.FindAccountSkin(acc.Username);
+                if (localFile != null)
+                {
+                    byte[]? bytes = null;
+                    try { bytes = await File.ReadAllBytesAsync(localFile); }
+                    catch { }
+                    if (bytes != null)
+                    {
+                        var render = await Task.Run(() => SkinBodyRenderer.Render(bytes, false));
+                        if (render != null)
+                        {
+                            localBody = render;
+                            var head = new System.Windows.Media.Imaging.CroppedBitmap(render, new Int32Rect(24, 0, 48, 48));
+                            head.Freeze();
+                            localAvatar = head;
+                        }
+                    }
+                }
+            }
+
+            byte[]? bodyBytes = null, avatarBytes = null;
+            if (localBody == null) bodyBytes = await _skins.GetBodyRenderAsync(acc);
+            if (localAvatar == null) avatarBytes = await _skins.GetAvatarAsync(acc, 72);
 
             Dispatcher.Invoke(() =>
             {
-                if (body is not null)
+                if (localBody is not null || bodyBytes is not null)
                 {
-                    var img = ToImage(body);
+                    var img = localBody ?? ToImage(bodyBytes!);
                     ImgSkinPreview.Source = img;
                     ImgBannerSkin.Source = img;
                     TxtSkinPlaceholder.Visibility = Visibility.Collapsed;
                 }
-                if (avatar is not null) ImgAvatar.Source = ToImage(avatar);
+                ImgAvatar.Source = localAvatar ?? (avatarBytes != null ? ToImage(avatarBytes) : null);
             });
         }
         catch (Exception ex) { Log.Warn("Не удалось загрузить скин: " + ex.Message); }
@@ -4182,26 +4234,6 @@ public partial class MainWindow : Window
 
     // ========== СКИНЫ ==========
 
-    private static readonly (string Nick, string Label)[] SkinLibraryItems =
-    {
-        ("Notch", "Основатель Minecraft"),
-        ("jeb_", "Геймдизайнер Mojang"),
-        ("Dinnerbone", "Разработчик Mojang"),
-        ("Dream", "Популярный ютубер"),
-        ("Technoblade", "Легенда PvP"),
-        ("GeorgeNotFound", "Стример"),
-        ("Sapnap", "Стример"),
-        ("BadBoyHalo", "Стример"),
-        ("Philza", "Стример"),
-        ("WilburSoot", "Музыкант и стример"),
-        ("Tommyinnit", "Стример"),
-        ("RanbooLive", "Стример"),
-        ("Grian", "Строитель Hermitcraft"),
-        ("MumboJumbo", "Редстоунер Hermitcraft"),
-        ("CaptainSparklez", "Популярный ютубер"),
-        ("Skeppy", "Стример")
-    };
-
     private void UpdateSkinTabHeader()
     {
         var acc = _account ?? AccountStorage.Load();
@@ -4214,10 +4246,21 @@ public partial class MainWindow : Window
         }
 
         TxtSkinTabStatus.Text = acc.IsOffline
-            ? "Оффлайн-профиль: скин сохраняется в «Свои скины», в аккаунт Mojang загружается после входа через Microsoft."
+            ? "Оффлайн-профиль: применённый скин показывается в игре через CustomSkinLoader (сборки с Fabric/Forge)."
             : acc.IsExpired
                 ? "Сессия Microsoft истекла — скин будет применён после повторного входа."
                 : "Аккаунт Microsoft: скин загружается в ваш профиль Mojang.";
+
+                // Оффлайн-профиль: показываем применённый локальный скин, если он есть
+        if (acc.IsOffline)
+        {
+            var local = OfflineSkinService.FindAccountSkin(acc.Username);
+            if (local != null)
+            {
+                LoadLocalSkinImageAsync(ImgSkinsPreview, local);
+                return;
+            }
+        }
 
         var previewUrl = acc.IsOffline
             ? SkinService.AvatarByNameUrl(acc.Username, 96)
@@ -4234,32 +4277,153 @@ public partial class MainWindow : Window
         PanelSkinGallery.Visibility = tag == "gallery" ? Visibility.Visible : Visibility.Collapsed;
         PanelSkinLocal.Visibility = tag == "local" ? Visibility.Visible : Visibility.Collapsed;
 
-        if (tag == "library") LoadSkinLibrary();
-        if (tag == "gallery" && _galleryCache.Count == 0) _ = LoadGalleryPageAsync();
+        if (tag == "library") _ = LoadCatalogAsync(10);
+        if (tag == "gallery" && _catalogItems.Count == 0) _ = LoadCatalogAsync(_catalogNextPage);
         if (tag == "local") LoadLocalSkins();
     }
 
-    // ---------- Галерея скинов (каталог MineSkin) ----------
+    // ---------- Каталог скинов ----------
+    // Источники без повторов: (1) встроенный каталог ~1000 скинов (работает без сети),
+    // (2) MinecraftSkins.com через WordPress REST API, (3) свежие скины MineSkin.
+    // Один кэш + дедупликация по Id — скины не повторяются при листании.
 
-    private readonly List<SkinInfo> _galleryCache = new();
-    private int _galleryPage;
-    private bool _galleryLoading;
+    private readonly List<SkinInfo> _catalogItems = new();
+    private readonly HashSet<string> _catalogSeen = new(StringComparer.OrdinalIgnoreCase);
+    private int _catalogNextPage = 1;
+    private bool _catalogLoading;
+    private bool _seedAdded;
+    private bool _catalogExhausted;
 
-    private async Task LoadGalleryPageAsync()
+    private static async Task<List<SkinInfo>> FetchCatalogPageAsync(int page)
     {
-        if (_galleryLoading) return;
-        _galleryLoading = true;
+        var batch = new List<SkinInfo>();
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
+            http.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36");
+            http.DefaultRequestHeaders.Add("Accept", "application/json");
 
+            var url = $"https://minecraftskins.com/wp-json/wp/v2/user-skins?per_page=100&page={page}&_fields=id,title,content";
+            var resp = await http.GetStringAsync(url);
+            using var doc = JsonDocument.Parse(resp);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return batch;
+
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                string id;
+                try { id = item.GetProperty("id").GetInt32().ToString(); }
+                catch { continue; }
+
+                string title;
+                try { title = item.GetProperty("title").GetProperty("rendered").GetString() ?? ""; }
+                catch { title = ""; }
+                title = System.Net.WebUtility.HtmlDecode(title).Trim();
+                if (string.IsNullOrEmpty(title)) title = "Скин #" + id;
+
+                string html;
+                try { html = item.GetProperty("content").GetProperty("rendered").GetString() ?? ""; }
+                catch { continue; }
+
+                var m = System.Text.RegularExpressions.Regex.Match(html, "src=\"([^\"]*images/skins/skin-[^\"]+\\.png)\"");
+                if (!m.Success) continue;
+                var img = m.Groups[1].Value;
+                if (img.StartsWith("/")) img = "https://www.minecraftskins.com" + img;
+                if (img.StartsWith("http://")) img = "https://" + img.Substring("http://".Length);
+
+                batch.Add(new SkinInfo
+                {
+                    Id = id,
+                    Name = title,
+                    Url = img,
+                    PreviewUrl = img,
+                    Source = "MinecraftSkins"
+                });
+            }
+        }
+        catch
+        {
+            // Сеть недоступна — вернём пустой список, вызывающий код покажет статус
+        }
+        return batch;
+    }
+
+    /// <summary>Догружает страницы каталога (до maxPage включительно) и рисует новые карточки.</summary>
+    private async Task LoadCatalogAsync(int maxPage)
+    {
+        if (_catalogLoading) return;
+        _catalogLoading = true;
+        try
+        {
+            AddSeedOnce();
+
+            while (_catalogNextPage <= maxPage && !_catalogExhausted)
+            {
+                var batch = await FetchCatalogPageAsync(_catalogNextPage);
+                if (batch.Count == 0)
+                {
+                    // Сетевой каталог недоступен или закончился — добираем свежие MineSkin
+                    _catalogExhausted = true;
+                    var extra = await FetchMineSkinRecentAsync();
+                    var freshExtra = extra.Where(s => _catalogSeen.Add(s.Id)).ToList();
+                    if (freshExtra.Count > 0)
+                    {
+                        _catalogItems.AddRange(freshExtra);
+                        AppendCatalogCards(freshExtra, GalleryPanel);
+                    }
+                    else if (_catalogItems.Count == 0)
+                    {
+                        TxtGalleryStatus.Text = "Не удалось загрузить каталог скинов. Проверьте интернет.";
+                    }
+                    break;
+                }
+
+                var fresh = batch.Where(s => _catalogSeen.Add(s.Id)).ToList();
+                var startIndex = _catalogItems.Count;
+                _catalogItems.AddRange(fresh);
+                _catalogNextPage++;
+
+                AppendCatalogCards(fresh, GalleryPanel);
+                var libAdd = fresh.Take(Math.Max(0, 1000 - startIndex)).ToList();
+                if (libAdd.Count > 0) AppendCatalogCards(libAdd, SkinLibraryPanel);
+            }
+        }
+        finally
+        {
+            _catalogLoading = false;
+            if (_catalogItems.Count > 0) TxtGalleryStatus.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Один раз показывает встроенный каталог (~1000 скинов) в библиотеке и галерее.</summary>
+    private void AddSeedOnce()
+    {
+        if (_seedAdded) return;
+        _seedAdded = true;
+
+        var seed = SkinCatalogService.GetSeed().Take(1000).ToList();
+        if (seed.Count == 0) return;
+
+        _catalogItems.AddRange(seed);
+        foreach (var s in seed) _catalogSeen.Add(s.Id);
+
+        AppendCatalogCards(seed, GalleryPanel);
+        AppendCatalogCards(seed, SkinLibraryPanel);
+        TxtGalleryStatus.Visibility = Visibility.Collapsed;
+    }
+
+    private static async Task<List<SkinInfo>> FetchMineSkinRecentAsync()
+    {
+        var batch = new List<SkinInfo>();
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
             http.DefaultRequestHeaders.Add("User-Agent", "MaysLauncher/1.0");
 
-            var resp = await http.GetStringAsync($"https://api.mineskin.org/v2/skins?page={_galleryPage + 1}");
+            var resp = await http.GetStringAsync("https://api.mineskin.org/v2/skins");
             using var doc = JsonDocument.Parse(resp);
-            if (!doc.RootElement.TryGetProperty("skins", out var skins)) return;
+            if (!doc.RootElement.TryGetProperty("skins", out var skins)) return batch;
 
-            var batch = new List<SkinInfo>();
             foreach (var s in skins.EnumerateArray())
             {
                 var uuid = s.TryGetProperty("uuid", out var u) ? u.GetString() : null;
@@ -4281,31 +4445,12 @@ public partial class MainWindow : Window
                     Source = "MineSkin"
                 });
             }
-
-            if (batch.Count == 0) return;
-
-            _galleryPage++;
-            _galleryCache.AddRange(batch);
-            AppendGalleryCards(batch);
-
-            if (GalleryScroller is { ScrollableHeight: 0 })
-            {
-                // Контент не заполнил экран — сразу подтягиваем следующую страницу
-                _ = LoadGalleryPageAsync();
-            }
         }
-        catch
-        {
-            if (_galleryCache.Count == 0) TxtGalleryStatus.Text = "Не удалось загрузить каталог скинов. Проверьте интернет.";
-        }
-        finally
-        {
-            _galleryLoading = false;
-            if (_galleryCache.Count > 0) TxtGalleryStatus.Visibility = Visibility.Collapsed;
-        }
+        catch { }
+        return batch;
     }
 
-    private void AppendGalleryCards(IList<SkinInfo> batch)
+    private void AppendCatalogCards(IList<SkinInfo> batch, System.Windows.Controls.Panel panel)
     {
         foreach (var skin in batch)
         {
@@ -4314,7 +4459,7 @@ public partial class MainWindow : Window
                 Width = 72, Height = 72, Stretch = Stretch.Uniform,
                 Margin = new Thickness(6, 8, 6, 0)
             };
-            _ = LoadGalleryImageAsync(image, skin.Url);
+            _ = LoadCardImageAsync(image, skin);
 
             var name = new TextBlock
             {
@@ -4339,58 +4484,53 @@ public partial class MainWindow : Window
                 BorderBrush = (Brush)FindResource("Border"),
                 BorderThickness = new Thickness(1),
                 Tag = skin,
-                ToolTip = $"{skin.Name} — нажмите, чтобы применить"
+                ToolTip = $"{skin.Name} — нажмите, чтобы надеть"
             };
             card.Child = content;
             card.MouseLeftButtonDown += (_, _) => SelectSkin(skin.Name, skin.Url);
 
-            GalleryPanel.Children.Add(card);
+            panel.Children.Add(card);
         }
     }
 
-    private static async Task LoadGalleryImageAsync(Image image, string url)
+    /// <summary>Превью карточки: встроенная текстура (каталог) либо загрузка из сети.</summary>
+    private static async Task LoadCardImageAsync(Image image, SkinInfo skin)
     {
-        var bmp = await ImageCacheService.GetAsync(url, App.Http, 96);
-        if (bmp is not null) image.Source = bmp;
+        if (skin.Source == "Catalog")
+        {
+            var bytes = SkinCatalogService.GetBytes(skin.Id);
+            if (bytes != null)
+            {
+                try
+                {
+                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bmp.StreamSource = new MemoryStream(bytes);
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    image.Source = bmp;
+                }
+                catch { }
+                return;
+            }
+        }
+
+        var net = await ImageCacheService.GetAsync(skin.Url, App.Http, 96);
+        if (net is not null) image.Source = net;
     }
 
     private void GalleryScroll_Changed(object sender, ScrollChangedEventArgs e)
     {
-        if (_galleryLoading || _galleryCache.Count == 0) return;
+        if (_catalogLoading || _catalogExhausted || _catalogItems.Count == 0) return;
         if (e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 320)
-            _ = LoadGalleryPageAsync();
+            _ = LoadCatalogAsync(_catalogNextPage);
     }
 
     private void LoadSkinLibrary()
     {
-        SkinLibraryPanel.Children.Clear();
-
-        foreach (var (nick, label) in SkinLibraryItems)
-        {
-            var url = $"https://minotar.net/skin/{Uri.EscapeDataString(nick)}";
-
-            var border = new Border
-            {
-                Width = 80, Height = 80, CornerRadius = new CornerRadius(8),
-                Margin = new Thickness(4), Cursor = Cursors.Hand,
-                Background = FindResource("Panel") as Brush,
-                BorderBrush = FindResource("Border") as Brush,
-                BorderThickness = new Thickness(1),
-                Tag = url,
-                ToolTip = $"{nick} — {label}"
-            };
-
-            var image = new Image
-            {
-                Stretch = Stretch.UniformToFill,
-                Margin = new Thickness(4)
-            };
-
-            LoadSkinImageAsync(image, $"https://minotar.net/helm/{Uri.EscapeDataString(nick)}/64.png");
-            border.Child = image;
-            border.MouseLeftButtonDown += (_, _) => SelectSkin(nick, url);
-            SkinLibraryPanel.Children.Add(border);
-        }
+        // Библиотека = первые 1000 скинов каталога (общий кэш с галереей, без повторов)
+        _ = LoadCatalogAsync(10);
     }
 
     private async void LoadSkinImageAsync(Image image, string url)
@@ -4411,14 +4551,12 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private void SelectSkin(string name, string url)
+    private void SelectSkin(string name, string url, bool slim = false)
     {
-        _selectedSkin = new SkinInfo { Name = name, Url = url };
+        _selectedSkin = new SkinInfo { Name = name, Url = url, Slim = slim };
         TxtNewSkinName.Text = name;
-        TxtNewSkinInfo.Text = "Скин игрока " + name;
-        SkinPreviewPanelNew.Visibility = Visibility.Visible;
-        BtnApplySkinNew.IsEnabled = true;
-        LoadSkinImageAsync(ImgNewSkinPreview, url);
+        ShowSkinPreviewPanel();
+        LoadBodyPreviewAsync(url);
     }
 
     private void LoadLocalSkins()
@@ -4470,10 +4608,55 @@ public partial class MainWindow : Window
     {
         _selectedSkin = new SkinInfo { Name = skin.Name, Url = skin.FilePath };
         TxtNewSkinName.Text = skin.Name;
-        TxtNewSkinInfo.Text = "Локальный скин";
+        ShowSkinPreviewPanel();
+        LoadBodyPreviewAsync(skin.FilePath);
+    }
+
+    /// <summary>Показывает панель превью выбранного скина и подсказку для текущего аккаунта.</summary>
+    private void ShowSkinPreviewPanel()
+    {
         SkinPreviewPanelNew.Visibility = Visibility.Visible;
         BtnApplySkinNew.IsEnabled = true;
-        LoadLocalSkinImageAsync(ImgNewSkinPreview, skin.FilePath);
+        SetApplyButtonIdle();
+
+        var acc = _account ?? AccountStorage.Load();
+        TxtNewSkinInfo.Text = acc == null
+            ? "Войдите в аккаунт, чтобы применить скин."
+            : acc.IsOffline
+                ? $"Оффлайн-аккаунт «{acc.Username}» — скин будет показываться в игре."
+                : acc.IsExpired
+                    ? "Сессия истекла — скин применится после повторного входа."
+                    : "Скин будет загружен в ваш профиль Mojang.";
+    }
+
+    /// <summary>Строит полноценное превью персонажа (тело) из текстурного листа скина.</summary>
+    private async void LoadBodyPreviewAsync(string urlOrPath)
+    {
+        try
+        {
+            byte[] data;
+            if (_selectedSkin?.Source == "Catalog")
+            {
+                data = SkinCatalogService.GetBytes(_selectedSkin.Id) ?? Array.Empty<byte>();
+            }
+            else if (urlOrPath.StartsWith("http"))
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
+                http.DefaultRequestHeaders.Add("User-Agent", "MaysLauncher/1.0");
+                data = await http.GetByteArrayAsync(urlOrPath);
+            }
+            else
+            {
+                data = File.ReadAllBytes(urlOrPath);
+            }
+
+            var slim = _selectedSkin?.Slim ?? false;
+            var selected = _selectedSkin;
+            var render = await Task.Run(() => SkinBodyRenderer.Render(data, slim));
+            if (render != null && ReferenceEquals(_selectedSkin, selected))
+                ImgNewSkinPreview.Source = render;
+        }
+        catch { }
     }
 
     private async void BtnApplySkin_Click(object sender, RoutedEventArgs e)
@@ -4481,30 +4664,89 @@ public partial class MainWindow : Window
         if (_selectedSkin == null) return;
 
         BtnApplySkinNew.IsEnabled = false;
+        BtnApplySkinNew.Content = "Устанавливаю…";
         try
         {
             var account = _account ?? AccountStorage.Load();
             if (account == null)
             {
                 ToastNotification.Show("Вход не выполнен", "Сначала войдите в аккаунт.", NotificationType.Error);
+                SetApplyButtonIdle();
                 return;
             }
+
+            ToastNotification.Show("Установка скина",
+                $"Начинаю установку «{_selectedSkin.Name}»…", NotificationType.Info);
 
             var isRemote = _selectedSkin.Url.StartsWith("http") && !_selectedSkin.Url.StartsWith("file:///");
             var path = isRemote ? await DownloadSkinAsync(_selectedSkin) : _selectedSkin.Url;
 
             if (path == null || !File.Exists(path))
             {
-                ToastNotification.Show("Ошибка", "Не удалось получить файл скина.", NotificationType.Error);
+                ToastNotification.Show("Не удалось надеть скин", "Скин повреждён или файл не скачался.", NotificationType.Error);
+                SetApplyButtonIdle();
                 return;
             }
 
             if (account.IsOffline)
             {
+                // Слот скина оффлайн-аккаунта: skins/<ник>.png
+                var slot = OfflineSkinService.AccountSkinPath(account.Username);
+                Directory.CreateDirectory(IOPath.GetDirectoryName(slot)!);
+
+                if (string.Equals(path, slot, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Ник совпал с именем аккаунта: скачанный файл уже лежит в слоте —
+                    // перезапись сама в себя не нужна (File.Copy падает в этом случае).
+                    AppendLog("Файл скина уже в слоте аккаунта: " + slot);
+                }
+                else
+                {
+                    try
+                    {
+                        File.Copy(path, slot, overwrite: true);
+                    }
+                    catch (IOException)
+                    {
+                        // Файл может удерживать превью — переписываем байтами
+                        File.WriteAllBytes(slot, File.ReadAllBytes(path));
+                    }
+                }
+
+                // Синхронизация во все сборки с модлоадером (CustomSkinLoader)
+                var synced = 0;
+                foreach (var inst in _instances.Where(OfflineSkinService.IsCslSupported))
+                {
+                    var cslOk = await OfflineSkinService.EnsureCslModAsync(inst);
+                    AppendLog($"CSL для «{inst.Name}» ({inst.Loader}): " + (cslOk ? "мод готов" : "не удалось установить"));
+                    if (!cslOk) continue;
+                    OfflineSkinService.SyncToInstance(inst, account.Username, slot);
+                    synced++;
+                    AppendLog($"Оффлайн-скин «{account.Username}» скопирован в «{inst.Name}».");
+                }
+                if (_instances.Count == 0 && _selectedInstance != null && OfflineSkinService.IsCslSupported(_selectedInstance))
+                {
+                    var cslOk = await OfflineSkinService.EnsureCslModAsync(_selectedInstance);
+                    if (cslOk)
+                    {
+                        OfflineSkinService.SyncToInstance(_selectedInstance, account.Username, slot);
+                        synced++;
+                        AppendLog($"Оффлайн-скин «{account.Username}» скопирован в «{_selectedInstance.Name}».");
+                    }
+                }
+                AppendLog(synced > 0
+                    ? $"Скин «{_selectedSkin.Name}» надет на «{account.Username}» (сборок: {synced})."
+                    : "Скин сохранён, но подходящих сборок с модлоадером не найдено.");
+
                 if (isRemote) LoadLocalSkins();
-                ToastNotification.Show("Скин сохранён",
-                    "Оффлайн-профиль не может сменить скин в аккаунте Mojang. Скин добавлен в «Свои скины».",
+
+                ToastNotification.Show("Скин надет", synced > 0
+                    ? $"«{_selectedSkin.Name}» установлен для оффлайн-аккаунта «{account.Username}» и будет показываться в игре."
+                    : "Скин сохранён. Для показа в игре оффлайн-аккаунту нужна сборка с модлоадером Fabric/Forge.",
                     NotificationType.Success);
+                UpdateSkinTabHeader();
+                _ = LoadSkinImagesAsync(account);
+                SetApplyButtonApplied();
                 return;
             }
 
@@ -4517,34 +4759,134 @@ public partial class MainWindow : Window
 
             var model = _selectedSkin.Slim ? SkinService.SkinModel.Slim : SkinService.SkinModel.Classic;
             await _skins.UploadSkinAsync(account.AccessToken, path, model);
-            ToastNotification.Show("Скин применён", _selectedSkin.Name, NotificationType.Success);
+            ToastNotification.Show("Скин надет",
+                $"«{_selectedSkin.Name}» загружен в ваш профиль Mojang.", NotificationType.Success);
+            UpdateSkinTabHeader();
+            _ = LoadSkinImagesAsync(account);
+            SetApplyButtonApplied();
+        }
+        catch (InvalidDataException ex)
+        {
+            Log.Warn("Скин повреждён: " + ex.Message);
+            ToastNotification.Show("Не удалось надеть скин", "Скин повреждён — " + ex.Message, NotificationType.Error);
+            SetApplyButtonIdle();
         }
         catch (Exception ex)
         {
             Log.Warn("Не удалось применить скин: " + ex.Message);
-            ToastNotification.Show("Ошибка скина", ex.Message, NotificationType.Error);
+            ToastNotification.Show("Не удалось надеть скин", ex.Message, NotificationType.Error);
+            SetApplyButtonIdle();
         }
-        finally { BtnApplySkinNew.IsEnabled = true; }
+    }
+
+    /// <summary>Кнопка «Надеть скин» в исходном состоянии.</summary>
+    private void SetApplyButtonIdle()
+    {
+        BtnApplySkinNew.IsEnabled = true;
+        BtnApplySkinNew.Content = "Надеть скин";
+        BtnApplySkinNew.Background = null;
+        BtnResetSkinNew.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Кнопка «Надеть скин» в состоянии «надет»: другой оттенок + кнопка «По умолчанию».</summary>
+    private void SetApplyButtonApplied()
+    {
+        BtnApplySkinNew.IsEnabled = true;
+        BtnApplySkinNew.Content = "Надет ✓";
+        BtnApplySkinNew.Background = new SolidColorBrush(Color.FromRgb(0x2E, 0xA0, 0x43));
+        BtnResetSkinNew.Visibility = Visibility.Visible;
+    }
+
+    private async void BtnResetSkinNew_Click(object sender, RoutedEventArgs e)
+    {
+        var account = _account ?? AccountStorage.Load();
+        if (account == null)
+        {
+            ToastNotification.Show("Вход не выполнен", "Сначала войдите в аккаунт.", NotificationType.Error);
+            return;
+        }
+
+        BtnResetSkinNew.IsEnabled = false;
+        try
+        {
+            if (account.IsOffline)
+            {
+                // Удаляем слот скина оффлайн-аккаунта и локальные файлы CustomSkinLoader
+                var slot = OfflineSkinService.AccountSkinPath(account.Username);
+                if (File.Exists(slot)) File.Delete(slot);
+
+                foreach (var inst in _instances.Where(OfflineSkinService.IsCslSupported))
+                {
+                    OfflineSkinService.RemoveFromInstance(inst, account.Username);
+                }
+
+                if (_selectedSkin != null && _selectedSkin.Url.StartsWith("http")) LoadLocalSkins();
+                ToastNotification.Show("Скин по умолчанию",
+                    $"Для оффлайн-аккаунта «{account.Username}» возвращён стандартный скин.",
+                    NotificationType.Success);
+            }
+            else
+            {
+                if (account.IsExpired && !string.IsNullOrEmpty(account.MicrosoftRefreshToken))
+                {
+                    account = await _auth.RefreshAsync(account.MicrosoftRefreshToken!);
+                    AccountStorage.Save(account);
+                    SetAccount(account, refreshSkin: false);
+                }
+
+                await _skins.ResetSkinAsync(account.AccessToken, CancellationToken.None);
+                ToastNotification.Show("Скин по умолчанию",
+                    "Стандартный скин восстановлен в профиле Mojang.", NotificationType.Success);
+            }
+
+            if (_selectedSkin != null) LoadBodyPreviewAsync(_selectedSkin.Url);
+            UpdateSkinTabHeader();
+            _ = LoadSkinImagesAsync(account);
+            SetApplyButtonIdle();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Не удалось вернуть скин по умолчанию: " + ex.Message);
+            ToastNotification.Show("Ошибка", "Не удалось вернуть скин по умолчанию: " + ex.Message, NotificationType.Error);
+        }
+        finally { BtnResetSkinNew.IsEnabled = true; }
     }
 
     private async Task<string?> DownloadSkinAsync(SkinInfo skin)
     {
-        try
+        byte[] data;
+        if (skin.Source == "Catalog")
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-            var data = await http.GetByteArrayAsync(skin.Url);
-
-            SkinService.ValidateSkinPng(data);
-
-            var skinsDir = IOPath.Combine(LauncherPaths.Root, "skins");
-            Directory.CreateDirectory(skinsDir);
-            var safe = string.Concat(skin.Name.Where(char.IsLetterOrDigit));
-            if (string.IsNullOrEmpty(safe)) safe = "skin";
-            var path = IOPath.Combine(skinsDir, $"{safe}.png");
-            await File.WriteAllBytesAsync(path, data);
-            return path;
+            // Встроенная текстура — без интернета
+            data = SkinCatalogService.GetBytes(skin.Id)
+                   ?? throw new InvalidDataException("Встроенный файл скина не найден.");
         }
-        catch { return null; }
+        else
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                data = await http.GetByteArrayAsync(skin.Url);
+            }
+            catch (InvalidDataException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        SkinService.ValidateSkinPng(data);
+
+        var skinsDir = IOPath.Combine(LauncherPaths.Root, "skins");
+        Directory.CreateDirectory(skinsDir);
+        var safe = string.Concat(skin.Name.Where(char.IsLetterOrDigit));
+        if (string.IsNullOrEmpty(safe)) safe = "skin";
+        var path = IOPath.Combine(skinsDir, $"{safe}.png");
+        await File.WriteAllBytesAsync(path, data);
+        return path;
     }
 
     private async void BtnSearchSkins_Click(object sender, RoutedEventArgs e)
@@ -4562,8 +4904,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        TxtSkinSearchStatus.Text = $"Найден скин игрока {results[0].Name}. Нажмите «Применить» или «В библиотеку».";
-        SelectSkin(results[0].Name, results[0].Url);
+        TxtSkinSearchStatus.Text = $"Найден скин игрока {results[0].Name}. Нажмите «Надеть скин» или «В библиотеку».";
+        SelectSkin(results[0].Name, results[0].Url, results[0].Slim);
+    }
+
+    private void SkinsSearchGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SkinsSearchGrid.SelectedItem is not SkinInfo skin) return;
+        SelectSkin(skin.Name, skin.Url, skin.Slim);
     }
 
     /// <summary>Ищет скин по нику через официальные серверы Mojang.</summary>
@@ -4637,15 +4985,22 @@ public partial class MainWindow : Window
         var skin = (SkinsSearchGrid.ItemsSource as List<SkinInfo>)?.FirstOrDefault(s => s.Id == skinId);
         if (skin == null) return;
 
-        var path = await DownloadSkinAsync(skin);
-        if (path != null)
+        try
         {
-            ToastNotification.Show("Скин добавлен", $"{skin.Name} сохранён в «Свои скины».", NotificationType.Success);
-            LoadLocalSkins();
+            var path = await DownloadSkinAsync(skin);
+            if (path != null)
+            {
+                ToastNotification.Show("Скин добавлен", $"{skin.Name} сохранён в «Свои скины».", NotificationType.Success);
+                LoadLocalSkins();
+            }
+            else
+            {
+                ToastNotification.Show("Ошибка", "Не удалось скачать скин", NotificationType.Error);
+            }
         }
-        else
+        catch (InvalidDataException ex)
         {
-            ToastNotification.Show("Ошибка", "Не удалось скачать скин", NotificationType.Error);
+            ToastNotification.Show("Скин повреждён", "Файл не похож на скин: " + ex.Message, NotificationType.Error);
         }
     }
 

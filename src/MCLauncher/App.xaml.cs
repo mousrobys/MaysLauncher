@@ -30,6 +30,14 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Самообновление (Self-Replacement): если запущена скачанная с GitHub копия —
+        // заменяем лаунчер на Рабочем столе, перезапускаем его и завершаем этот процесс.
+        if (SelfUpdateService.RunSelfReplacementIfNeeded())
+        {
+            Shutdown();
+            return;
+        }
+
         ServicePointManager.DefaultConnectionLimit = 64;
         ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
 

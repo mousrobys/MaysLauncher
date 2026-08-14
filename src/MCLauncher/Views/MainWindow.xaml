@@ -2241,9 +2241,6 @@
                                 <Border x:Name="SkinsPreviewBorder" Width="48" Height="48" CornerRadius="8" Background="#262B34" BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" ClipToBounds="True">
                                     <Image x:Name="ImgSkinsPreview" Stretch="UniformToFill"/>
                                 </Border>
-                                <Button x:Name="BtnApplySkinNew" Style="{StaticResource AccentButton}"
-                                        Content="Применить" Margin="12,0,0,0" Height="36" Padding="16,0"
-                                        Click="BtnApplySkin_Click" IsEnabled="False"/>
                             </StackPanel>
                         </Grid>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
@@ -2253,6 +2250,11 @@
                             <RadioButton x:Name="TabSkinLocal" Content="Свои скины" Style="{StaticResource NavToggle}" Checked="TabSkin_Checked" Tag="local"/>
                         </StackPanel>
                         <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
                             <!-- Библиотека -->
                             <Grid x:Name="PanelSkinLibrary" Visibility="Visible">
                                 <Grid.RowDefinitions>
@@ -2282,6 +2284,7 @@
                                     <DataGrid x:Name="SkinsSearchGrid" AutoGenerateColumns="False"
                                               GridLinesVisibility="None" CanUserAddRows="False" IsReadOnly="True"
                                               HeadersVisibility="Column" SelectionUnit="FullRow"
+                                              SelectionChanged="SkinsSearchGrid_SelectionChanged"
                                               Background="Transparent" BorderThickness="0"
                                               RowHeight="42" ColumnHeaderHeight="40">
                                         <DataGrid.ColumnHeaderStyle>
@@ -2375,22 +2378,33 @@
                                 </Grid>
                                 <WrapPanel x:Name="LocalSkinsPanel" Grid.Row="1"/>
                             </Grid>
-                        </Grid>
-                        <Border x:Name="SkinPreviewPanelNew" Grid.Row="3" Style="{StaticResource Card}" Margin="0,10,0,0" Padding="12" Visibility="Collapsed">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="64" Height="64" CornerRadius="6" Background="#262B34" ClipToBounds="True">
-                                    <Image x:Name="ImgNewSkinPreview" Stretch="UniformToFill"/>
-                                </Border>
-                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock x:Name="TxtNewSkinName" Text="" FontWeight="SemiBold" FontSize="13"/>
-                                    <TextBlock x:Name="TxtNewSkinInfo" Text="" Foreground="{DynamicResource FgMuted}" FontSize="11" Margin="0,2,0,0"/>
-                                </StackPanel>
                             </Grid>
-                        </Border>
+                            <!-- Превью выбранного скина -->
+                            <Border Grid.Column="1" x:Name="SkinPreviewPanelNew" Width="252" Margin="12,0,0,0"
+                                    Style="{StaticResource Card}" Padding="14" Visibility="Collapsed">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Border Grid.Row="0" Background="#262B34" CornerRadius="8" Margin="0,0,0,10" ClipToBounds="True">
+                                        <Image x:Name="ImgNewSkinPreview" Width="110" Height="220" Stretch="Uniform"/>
+                                    </Border>
+                                    <TextBlock Grid.Row="1" x:Name="TxtNewSkinName" Text="" FontWeight="SemiBold" FontSize="13" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="2" x:Name="TxtNewSkinInfo" Text="" Foreground="{DynamicResource FgMuted}" FontSize="11" Margin="0,4,0,0" TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <Grid Grid.Row="3" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="BtnApplySkinNew" Style="{StaticResource AccentButton}" Content="Надеть скин" Height="38" Click="BtnApplySkin_Click" IsEnabled="False"/>
+                                        <Button x:Name="BtnResetSkinNew" Grid.Column="1" Style="{StaticResource BaseButton}" Content="По умолчанию" Height="38" Margin="8,0,0,0" Padding="10,0" Click="BtnResetSkinNew_Click" Visibility="Collapsed" ToolTip="Вернуть стандартный скин"/>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </Grid>
                     </Grid>
 
                     <!-- ============ НИЖНЯЯ ПАНЕЛЬ ============ -->

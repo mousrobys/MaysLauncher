@@ -3,7 +3,8 @@
 /// <summary>Все пути лаунчера в одном месте. Структура 1-в-1 как у официального лаунчера.</summary>
 public static class LauncherPaths
 {
-    private const string FolderName = ".mayslauncher";
+    private const string FolderName = "MaysLauncher";
+    private const string LegacyFolderName = ".mayslauncher";
 
     /// <summary>Маркер портативного режима рядом с exe.</summary>
     public const string PortableMarker = "portable.txt";
@@ -11,7 +12,7 @@ public static class LauncherPaths
     /// <summary>Данные лежат рядом с exe (запуск с флешки).</summary>
     public static bool IsPortable { get; private set; }
 
-    /// <summary>Корень данных: %APPDATA%\.mayslauncher либо папка рядом с exe.</summary>
+    /// <summary>Корень данных: %APPDATA%\MaysLauncher либо папка рядом с exe.</summary>
     public static string Root { get; private set; } = ResolveRoot();
 
     /// <summary>Папка, где лежит сам исполняемый файл.</summary>
@@ -53,8 +54,24 @@ public static class LauncherPaths
         catch { }
 
         IsPortable = false;
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), FolderName);
+
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var canonical = Path.Combine(appData, FolderName);
+        var legacy = Path.Combine(appData, LegacyFolderName);
+
+        // Одноразовый перенос данных из старой папки .mayslauncher в MaysLauncher.
+        // Идём только атомарным переименованием: если что-то занято — остаёмся в старой
+        // папке до следующего запуска, ничего не портя.
+        if (!Directory.Exists(canonical) && Directory.Exists(legacy))
+        {
+            try
+            {
+                Directory.Move(legacy, canonical);
+            }
+            catch { return legacy; }
+        }
+
+        return canonical;
     }
 
     /// <summary>Проверяет, можно ли писать рядом с exe (на CD или в Program Files нельзя).</summary>
