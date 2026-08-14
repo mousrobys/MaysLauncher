@@ -16,6 +16,9 @@
   <a href="https://github.com/mousrobys/MaysLauncher/releases/latest/download/MaysLauncher.exe">
     <img src="https://img.shields.io/badge/⬇️_Скачать-MaysLauncher.exe-blue?style=for-the-badge&logo=windows&logoColor=white" alt="Скачать MaysLauncher">
   </a>
+  <a href="https://mayslauncher-ru.netlify.app">
+    <img src="https://img.shields.io/badge/🌐_Сайт-mayslauncher--ru.netlify.app-8b5cf6?style=for-the-badge&logo=netlify&logoColor=white" alt="Официальный сайт">
+  </a>
 </p>
 
 ---
@@ -82,6 +85,7 @@
 
 | Ресурс | Ссылка |
 |--------|--------|
+| 🌐 Официальный сайт | [mayslauncher-ru.netlify.app](https://mayslauncher-ru.netlify.app) |
 | 📢 Официальный Telegram проекта | [MaysLauncher](https://t.me/MaysLauncher) |
 | 💻 Telegram разработчика | [moysecamm](https://t.me/canyramoysecamm) |
 | 🧪 Telegram главного тестера | [Andrej](https://t.me/Andrej060610) |
