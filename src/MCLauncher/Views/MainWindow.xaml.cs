@@ -1942,8 +1942,8 @@ public partial class MainWindow : Window
                 Install = install,
                 Java = java,
                 GameDir = InstanceService.InstanceDir(inst),
-                MinMemoryMb = Math.Min(1024, EffectiveMemory(inst)),
-                MaxMemoryMb = EffectiveMemory(inst),
+                MinMemoryMb = SafeMinMemory(inst),
+                MaxMemoryMb = SafeMaxMemory(inst),
                 WindowWidth = inst.WindowWidth > 0 ? inst.WindowWidth : _settings.WindowWidth,
                 WindowHeight = inst.WindowHeight > 0 ? inst.WindowHeight : _settings.WindowHeight,
                 Fullscreen = _settings.Fullscreen,
@@ -2016,6 +2016,22 @@ public partial class MainWindow : Window
 
     private int EffectiveMemory(GameInstance inst) =>
         inst.MaxMemoryMb > 0 ? inst.MaxMemoryMb : _settings.MaxMemoryMb;
+
+    /// <summary>Безопасный объём памяти: никогда не 0 (иначе JVM получит -Xmx0M и игра упадёт).</summary>
+    private int SafeMaxMemory(GameInstance inst)
+    {
+        var m = EffectiveMemory(inst);
+        if (m <= 0) m = LauncherSettings.RecommendedMaxMemory();
+        return m < 512 ? 512 : m;
+    }
+
+    /// <summary>Минимальная память: 256..Max, всегда > 0 и не больше Max.</summary>
+    private int SafeMinMemory(GameInstance inst)
+    {
+        var max = SafeMaxMemory(inst);
+        var min = Math.Min(1024, Math.Max(256, max));
+        return Math.Clamp(min, 256, max);
+    }
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {

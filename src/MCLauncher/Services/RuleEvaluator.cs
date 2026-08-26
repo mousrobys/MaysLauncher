@@ -23,7 +23,66 @@ public static class RuleEvaluator
     /// <summary>Ключ для natives: windows -> natives-windows (${arch} = 64/32).</summary>
     public static string NativeArchToken { get; } = Environment.Is64BitOperatingSystem ? "64" : "32";
 
-    private static string OsVersion { get; } = Environment.OSVersion.Version.ToString();
+    /// <summary>Реальная версия Windows. Берём через RtlGetVersion, потому что
+    /// Environment.OSVersion на Win10/11 без манифеста совместимости врёт (6.2.0),
+    /// и версионно-зависимые правила natives (os.version) ломаются.</summary>
+    public static string OsVersion { get; } = GetRealWindowsVersion();
+
+    /// <summary>true, если ОС — Windows 10 или новее (нужно для корректных правил запуска).</summary>
+    public static bool IsWindows10OrLater { get; } = DetectWindows10OrLater();
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct RtlOsVersionInfoEx
+    {
+        public int dwOSVersionInfoSize;
+        public int dwMajorVersion;
+        public int dwMinorVersion;
+        public int dwBuildNumber;
+        public int dwPlatformId;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szCSDVersion;
+    }
+
+    [DllImport("ntdll.dll", CharSet = CharSet.Unicode)]
+    private static extern int RtlGetVersion(ref RtlOsVersionInfoEx versionInfo);
+
+    private static string GetRealWindowsVersion()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                var info = new RtlOsVersionInfoEx
+                {
+                    dwOSVersionInfoSize = Marshal.SizeOf<RtlOsVersionInfoEx>()
+                };
+                if (RtlGetVersion(ref info) == 0)
+                    return $"{info.dwMajorVersion}.{info.dwMinorVersion}.{info.dwBuildNumber}";
+            }
+            catch { /* fallthrough */ }
+        }
+
+        return Environment.OSVersion.Version.ToString();
+    }
+
+    private static bool DetectWindows10OrLater()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return false;
+
+        try
+        {
+            var info = new RtlOsVersionInfoEx
+            {
+                dwOSVersionInfoSize = Marshal.SizeOf<RtlOsVersionInfoEx>()
+            };
+            if (RtlGetVersion(ref info) == 0)
+                return info.dwMajorVersion > 10 ||
+                       (info.dwMajorVersion == 10 && info.dwMinorVersion >= 0);
+        }
+        catch { }
+
+        return Environment.OSVersion.Version.Major >= 10;
+    }
 
     /// <summary>Разрешена ли сущность (библиотека / аргумент) текущими правилами.</summary>
     public static bool Allows(List<Rule>? rules, IReadOnlyDictionary<string, bool>? features = null)

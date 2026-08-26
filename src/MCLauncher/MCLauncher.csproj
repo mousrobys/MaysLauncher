@@ -9,7 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MaysLauncher</AssemblyName>
     <RootNamespace>MCLauncher</RootNamespace>
-    <Version>1.2.4</Version>
+    <Version>1.2.6</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>MaysLauncher</Product>
     <Company>Mays</Company>
     <AssemblyTitle>MaysLauncher</AssemblyTitle>
