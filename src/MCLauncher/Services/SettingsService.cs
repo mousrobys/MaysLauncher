@@ -34,7 +34,7 @@ public sealed class LauncherSettings
     // ---------- Внешний вид ----------
 
     /// <summary>Цвет акцента в формате #RRGGBB.</summary>
-    [JsonPropertyName("accentColor")] public string AccentColor { get; set; } = "#4ADE80";
+    [JsonPropertyName("accentColor")] public string AccentColor { get; set; } = "#A855F7";
 
     /// <summary>Пресет фона главного экрана.</summary>
     [JsonPropertyName("backgroundStyle")] public string BackgroundStyle { get; set; } = "Изумруд";
@@ -117,7 +117,8 @@ public static class SettingsService
                 if (s is not null)
                 {
                     if (string.IsNullOrWhiteSpace(s.GameDir)) s.GameDir = LauncherPaths.Root;
-                    if (string.IsNullOrWhiteSpace(s.AccentColor)) s.AccentColor = "#4ADE80";
+                    if (string.IsNullOrWhiteSpace(s.AccentColor) || s.AccentColor == "#4ADE80")
+                        s.AccentColor = "#A855F7";
                     return s;
                 }
             }
