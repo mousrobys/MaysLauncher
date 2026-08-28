@@ -26,7 +26,7 @@ public sealed class ThemePreset
 public static class ThemeService
 {
     public static Color CurrentAccent { get; private set; } =
-        (Color)ColorConverter.ConvertFromString("#4ADE80");
+        (Color)ColorConverter.ConvertFromString("#A855F7");
 
     private static ThemePreset? _current;
     public static ThemePreset CurrentTheme => _current ??= Presets[0];
@@ -132,6 +132,8 @@ public static class ThemeService
         SetBrush(res, "BorderBrushDark", preset.Border);
         SetBrush(res, "Fg", preset.Text);
         SetBrush(res, "FgMuted", preset.TextMuted);
+        SetBrush(res, "Text", preset.Text);
+        SetBrush(res, "Muted", preset.TextMuted);
 
         res["BgDeepColor"] = ToColor(preset.BgDeep);
         res["BgColor"] = ToColor(preset.Bg);
@@ -140,7 +142,7 @@ public static class ThemeService
 
         // Цвет текста на акцентной кнопке зависит от светлоты темы
         res["OnAccent"] = Freeze(new SolidColorBrush(
-            preset.IsLight ? Colors.White : (Color)ColorConverter.ConvertFromString("#08130C")));
+            preset.IsLight ? Colors.White : Colors.White));
 
         // Поле ввода и лог на светлой теме нужно перекрасить отдельно
         res["ConsoleBg"] = Freeze(new SolidColorBrush(ToColor(preset.IsLight ? "#FFFFFF" : "#0B0D10")));

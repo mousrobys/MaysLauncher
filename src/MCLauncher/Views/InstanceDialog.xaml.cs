@@ -14,7 +14,7 @@ public partial class InstanceDialog : Window
 
     private VersionManifest? _manifest;
     private LoaderKind _loader = LoaderKind.Vanilla;
-    private string _iconColor = "#4ADE80";
+    private string _iconColor = "#A855F7";
     private CancellationTokenSource? _loaderCts;
 
     /// <summary>Итог: заполняется при успешном создании.</summary>
