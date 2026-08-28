@@ -73,13 +73,13 @@ if ($LASTEXITCODE -ne 0) {
 $exe = Join-Path $tempPub 'MaysLauncher.exe'
 if (-not (Test-Path $exe)) { throw "MaysLauncher.exe не найден в $tempPub" }
 
-Copy-Item $exe -Destination (Join-Path $outDir 'MaysLauncher-1.3.0.exe') -Force
+Copy-Item $exe -Destination (Join-Path $outDir 'MaysLauncher.exe') -Force
 
-$size = [math]::Round((Get-Item (Join-Path $outDir 'MaysLauncher-1.3.0.exe')).Length / 1MB, 1)
+$size = [math]::Round((Get-Item (Join-Path $outDir 'MaysLauncher.exe')).Length / 1MB, 1)
 
 Write-Host ''
 Write-Host '=== ГОТОВО ===' -ForegroundColor Green
-Write-Host ("Файл:   " + (Join-Path $outDir 'MaysLauncher-1.3.0.exe'))
+Write-Host ("Файл:   " + (Join-Path $outDir 'MaysLauncher.exe'))
 Write-Host ("Размер: $size МБ")
 Write-Host 'Запускается на любом ПК с Windows x64 без установленного .NET.' -ForegroundColor DarkGray
 Write-Host ''

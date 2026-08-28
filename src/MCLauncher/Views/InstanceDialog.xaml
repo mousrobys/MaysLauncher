@@ -11,8 +11,11 @@
         Background="Transparent"
         FontFamily="Segoe UI">
 
-    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
-            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+    <Border Background="{DynamicResource CyberBg}" CornerRadius="14"
+            BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1.5">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.5" Color="#FF2D95"/>
+        </Border.Effect>
         <Grid Margin="24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

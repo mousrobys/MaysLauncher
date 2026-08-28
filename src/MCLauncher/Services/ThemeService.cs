@@ -26,7 +26,7 @@ public sealed class ThemePreset
 public static class ThemeService
 {
     public static Color CurrentAccent { get; private set; } =
-        (Color)ColorConverter.ConvertFromString("#A855F7");
+        (Color)ColorConverter.ConvertFromString("#FF2D95");
 
     private static ThemePreset? _current;
     public static ThemePreset CurrentTheme => _current ??= Presets[0];
@@ -34,6 +34,11 @@ public static class ThemeService
     /// <summary>Встроенные схемы.</summary>
     public static readonly ThemePreset[] Presets =
     {
+        new()
+        {
+            Name = "Кибер", BgDeep = "#160A2E", Bg = "#0A1226", Panel = "#101A2E",
+            PanelHover = "#16233D", Border = "#21364F", Text = "#E7F0FB", TextMuted = "#7E93AD"
+        },
         new()
         {
             Name = "Тёмная", BgDeep = "#0E1013", Bg = "#14171C", Panel = "#1B1F26",
@@ -147,13 +152,22 @@ public static class ThemeService
         // Поле ввода и лог на светлой теме нужно перекрасить отдельно
         res["ConsoleBg"] = Freeze(new SolidColorBrush(ToColor(preset.IsLight ? "#FFFFFF" : "#0B0D10")));
         res["ConsoleFg"] = Freeze(new SolidColorBrush(ToColor(preset.IsLight ? "#39424F" : "#A8B4C4")));
+
+        // Glassmorphism: тёмные темы делаем полупрозрачными — панели становятся
+        // стеклянными поверх размытого фона окна (DWM blur-behind).
+        if (!preset.IsLight)
+        {
+            res["Panel"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.Panel, 140)));
+            res["PanelHover"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.PanelHover, 165)));
+            res["Bg"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.Bg, 205)));
+        }
     }
 
     public static void ApplyAccent(string hex)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(hex)) return;
+            if (string.IsNullOrWhiteSpace(hex)) hex = "#FF2D95";
             if (!hex.StartsWith('#')) hex = "#" + hex;
 
             var color = (Color)ColorConverter.ConvertFromString(hex);
@@ -261,6 +275,12 @@ public static class ThemeService
         res[key] = Freeze(new SolidColorBrush(ToColor(hex)));
 
     private static Color ToColor(string hex) => (Color)ColorConverter.ConvertFromString(hex);
+
+    private static Color ToColorAlpha(string hex, byte alpha)
+    {
+        var c = ToColor(hex);
+        return Color.FromArgb(alpha, c.R, c.G, c.B);
+    }
 
     private static SolidColorBrush Freeze(SolidColorBrush b)
     {

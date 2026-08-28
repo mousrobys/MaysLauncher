@@ -30,6 +30,11 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Морозное стекло (DWM blur-behind) на всех прозрачных окнах лаунчера
+        EventManager.RegisterClassHandler(
+            typeof(Window), FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((s, _) => { if (s is Window w) Glass.Enable(w); }));
+
         // Самообновление (Self-Replacement): если запущена скачанная с GitHub копия —
         // заменяем лаунчер на Рабочем столе, перезапускаем его и завершаем этот процесс.
         if (SelfUpdateService.RunSelfReplacementIfNeeded())

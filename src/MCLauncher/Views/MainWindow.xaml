@@ -13,10 +13,10 @@
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <Border Margin="16" Background="{DynamicResource BgDeep}" CornerRadius="14"
-            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+    <Border Margin="16" Background="{DynamicResource CyberBg}" CornerRadius="14"
+            BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1.5">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="14" ShadowDepth="0" Opacity="0.32" Color="#000000"/>
+                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.5" Color="#FF2D95"/>
             </Border.Effect>
         <Border.Clip>
             <RectangleGeometry Rect="0,0,1108,668" RadiusX="14" RadiusY="14"/>
@@ -24,6 +24,32 @@
         <Grid>
             <!-- Фоновая картинка пользователя -->
             <Rectangle x:Name="WindowBgLayer" Fill="Transparent" IsHitTestVisible="False"/>
+
+            <!-- Атмосферный неоновый фон (розовый + бирюза) -->
+            <Ellipse Width="560" Height="560" HorizontalAlignment="Right" VerticalAlignment="Top"
+                     Margin="180,-200,-60,0" IsHitTestVisible="False" Opacity="0.30">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#FF2D95" Offset="0"/>
+                        <GradientStop Color="#00FF2D95" Offset="1"/>
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+                <Ellipse.Effect>
+                    <BlurEffect Radius="140"/>
+                </Ellipse.Effect>
+            </Ellipse>
+            <Ellipse Width="520" Height="520" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                     Margin="-160,0,-40,80" IsHitTestVisible="False" Opacity="0.26">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#19F0D8" Offset="0"/>
+                        <GradientStop Color="#0019F0D8" Offset="1"/>
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+                <Ellipse.Effect>
+                    <BlurEffect Radius="140"/>
+                </Ellipse.Effect>
+            </Ellipse>
 
             <Grid>
             <Grid.RowDefinitions>
@@ -72,7 +98,8 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- НАВИГАЦИЯ -->
-                <Border Grid.Column="0" Background="{DynamicResource Bg}" CornerRadius="0,0,0,13">
+                <Border Grid.Column="0" Background="{DynamicResource Bg}" CornerRadius="0,0,0,13"
+                        BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>

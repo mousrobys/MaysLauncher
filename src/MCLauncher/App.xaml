@@ -12,11 +12,15 @@
             <Color x:Key="PanelColor">#1B1F26</Color>
             <Color x:Key="PanelHoverColor">#232833</Color>
             <Color x:Key="BorderColor">#2A2F3A</Color>
-            <Color x:Key="AccentColor">#A855F7</Color>
-            <Color x:Key="AccentDarkColor">#7C3AED</Color>
+            <Color x:Key="AccentColor">#FF2D95</Color>
+            <Color x:Key="AccentDarkColor">#19F0D8</Color>
             <Color x:Key="TextColor">#E8EBF0</Color>
             <Color x:Key="TextMutedColor">#8B93A3</Color>
             <Color x:Key="DangerColor">#F87171</Color>
+
+            <!-- Неоновые акценты -->
+            <Color x:Key="NeonPinkColor">#FF2D95</Color>
+            <Color x:Key="NeonTurqColor">#19F0D8</Color>
 
             <SolidColorBrush x:Key="BgDeep" Color="{StaticResource BgDeepColor}"/>
             <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
@@ -33,6 +37,29 @@
             <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}"/>
             <SolidColorBrush x:Key="Muted" Color="{StaticResource TextMutedColor}"/>
             <SolidColorBrush x:Key="Border" Color="{StaticResource BorderColor}"/>
+
+            <!-- Вторичный неоновый акцент (бирюза) -->
+            <SolidColorBrush x:Key="Accent2" Color="{StaticResource NeonTurqColor}"/>
+
+            <!-- Градиентная неоновая рамка (розовый -> бирюза) -->
+            <LinearGradientBrush x:Key="NeonBorder" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FF2D95" Offset="0"/>
+                <GradientStop Color="#FF63C8" Offset="0.5"/>
+                <GradientStop Color="#19F0D8" Offset="1"/>
+            </LinearGradientBrush>
+
+            <!-- Заливка неоновой кнопки -->
+            <LinearGradientBrush x:Key="NeonGrad" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FF2D95" Offset="0"/>
+                <GradientStop Color="#19F0D8" Offset="1"/>
+            </LinearGradientBrush>
+
+            <!-- Кибер-фон окна (полупрозрачный — поверх размытого рабочего стола) -->
+            <LinearGradientBrush x:Key="CyberBg" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#D1160A2E" Offset="0"/>
+                <GradientStop Color="#CC0A1226" Offset="0.5"/>
+                <GradientStop Color="#D6101420" Offset="1"/>
+            </LinearGradientBrush>
 
             <local:PlayTimeToVisibilityConverter x:Key="PlayTimeVis"/>
 
@@ -63,7 +90,7 @@
             <Style x:Key="BaseButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
                 <Setter Property="Background" Value="{DynamicResource Panel}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource NeonBorder}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="FontFamily" Value="Segoe UI"/>
                 <Setter Property="FontSize" Value="13"/>
@@ -78,7 +105,7 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8">
+                                    CornerRadius="9">
                                 <ContentPresenter HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
                                                   Margin="{TemplateBinding Padding}"/>
@@ -86,9 +113,15 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PanelHover}"/>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="14" ShadowDepth="0"
+                                                             Opacity="0.45" Color="#FF2D95"/>
+                                        </Setter.Value>
+                                    </Setter>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.78"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
@@ -102,16 +135,9 @@
 
             <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
                 <Setter Property="Foreground" Value="#FFFFFF"/>
-                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
                 <Setter Property="FontWeight" Value="Bold"/>
-                <Setter Property="Background">
-                    <Setter.Value>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#C084FC" Offset="0"/>
-                            <GradientStop Color="#7C3AED" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Setter.Value>
-                </Setter>
+                <Setter Property="Background" Value="{StaticResource NeonGrad}"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
@@ -126,14 +152,18 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#C084FC"/>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="0"
+                                                             Opacity="0.6" Color="#19F0D8"/>
+                                        </Setter.Value>
+                                    </Setter>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#7C3AED"/>
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.82"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2E2438"/>
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#3A2E4D"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#2A2438"/>
                                     <Setter Property="Foreground" Value="#6B7280"/>
                                     <Setter Property="Cursor" Value="Arrow"/>
                                 </Trigger>
@@ -145,6 +175,7 @@
 
             <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
                 <Setter Property="Foreground" Value="{DynamicResource Danger}"/>
+                <Setter Property="BorderBrush" Value="#7F1D2D"/>
             </Style>
 
             <!-- Кнопка закрытия окна -->
@@ -159,12 +190,12 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A2F3A"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#241A33"/>
                                     <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -194,33 +225,35 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Height="42">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Height="42"
+                                    BorderBrush="Transparent" BorderThickness="1">
                                 <Grid>
                                     <Border x:Name="Bar" Width="3" HorizontalAlignment="Left" Margin="0,9"
-                                            CornerRadius="2" Background="{DynamicResource Accent}" Opacity="0"/>
+                                            CornerRadius="2" Background="{DynamicResource NeonGrad}" Opacity="0"/>
                                     <ContentPresenter VerticalAlignment="Center" Margin="18,0,12,0"/>
                                 </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#1E1A2A"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#1B1430"/>
                                     <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Bd" Property="Background">
                                         <Setter.Value>
                                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                <GradientStop Color="#2A1A40" Offset="0"/>
-                                                <GradientStop Color="#1C1530" Offset="1"/>
+                                                <GradientStop Color="#2A1140" Offset="0"/>
+                                                <GradientStop Color="#101A2E" Offset="1"/>
                                             </LinearGradientBrush>
                                         </Setter.Value>
                                     </Setter>
                                     <Setter TargetName="Bar" Property="Opacity" Value="1"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                                    <Setter Property="Foreground" Value="#FF8FD6"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource NeonBorder}"/>
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
-                                            <DropShadowEffect BlurRadius="10" ShadowDepth="0"
-                                                             Opacity="0.35" Color="#A855F7"/>
+                                            <DropShadowEffect BlurRadius="12" ShadowDepth="0"
+                                                             Opacity="0.4" Color="#FF2D95"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -236,7 +269,7 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
                             <Border x:Name="Bd" Background="{DynamicResource Panel}"
-                                    BorderBrush="{DynamicResource BorderBrushDark}"
+                                    BorderBrush="{DynamicResource NeonBorder}"
                                     BorderThickness="1" CornerRadius="8">
                                 <Path x:Name="Arrow" HorizontalAlignment="Right" VerticalAlignment="Center"
                                       Margin="0,0,12,0" Fill="{DynamicResource FgMuted}"
@@ -244,7 +277,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -255,7 +288,7 @@
             <Style TargetType="ComboBox">
                 <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
                 <Setter Property="Background" Value="{DynamicResource Panel}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource NeonBorder}"/>
                 <Setter Property="FontFamily" Value="Segoe UI"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="Height" Value="40"/>
@@ -276,11 +309,11 @@
                                                   TextElement.Foreground="{DynamicResource Fg}"/>
                                 <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom"
                                        IsOpen="{TemplateBinding IsDropDownOpen}" Focusable="False" PopupAnimation="Slide">
-                                    <Border Background="#1B1F26" BorderBrush="{DynamicResource BorderBrushDark}"
+                                    <Border Background="#141A2E" BorderBrush="{DynamicResource NeonBorder}"
                                             BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
                                             MinWidth="{TemplateBinding ActualWidth}" MaxHeight="320">
                                         <Border.Effect>
-                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="Black"/>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="#19F0D8"/>
                                         </Border.Effect>
                                         <ScrollViewer Margin="4" SnapsToDevicePixels="True">
                                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
@@ -306,11 +339,11 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A303B"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#241A3A"/>
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A1A40"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#2A1140"/>
+                                    <Setter Property="Foreground" Value="#FF8FD6"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -327,7 +360,6 @@
                 <Setter Property="CaretBrush" Value="{DynamicResource Accent}"/>
                 <Setter Property="SelectionBrush" Value="{DynamicResource Accent}"/>
                 <Setter Property="SelectionTextBrush" Value="{DynamicResource OnAccent}"/>
-                <!-- Явный список с фолбэком: иначе кириллица может уйти в иконочный шрифт -->
                 <Setter Property="FontFamily" Value="Segoe UI, Tahoma, Arial, Global User Interface"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="Padding" Value="10,8"/>
@@ -343,7 +375,13 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsFocused" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="10" ShadowDepth="0"
+                                                             Opacity="0.35" Color="#19F0D8"/>
+                                        </Setter.Value>
+                                    </Setter>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -373,12 +411,12 @@
                             </StackPanel>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/>
-                                    <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Box" Property="Background" Value="{DynamicResource NeonGrad}"/>
+                                    <Setter TargetName="Box" Property="BorderBrush" Value="Transparent"/>
                                     <Setter TargetName="Check" Property="Opacity" Value="1"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -390,7 +428,7 @@
             <Style TargetType="ProgressBar">
                 <Setter Property="Height" Value="8"/>
                 <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
-                <Setter Property="Background" Value="#22262E"/>
+                <Setter Property="Background" Value="#1A2030"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Template">
                     <Setter.Value>
@@ -401,8 +439,8 @@
                                     <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="4">
                                         <Border.Background>
                                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                <GradientStop Color="#7C3AED" Offset="0"/>
-                                                <GradientStop Color="#C084FC" Offset="1"/>
+                                                <GradientStop Color="#FF2D95" Offset="0"/>
+                                                <GradientStop Color="#19F0D8" Offset="1"/>
                                             </LinearGradientBrush>
                                         </Border.Background>
                                     </Border>
@@ -422,13 +460,13 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Slider">
                             <Grid VerticalAlignment="Center">
-                                <Border Height="6" CornerRadius="3" Background="#22262E"/>
+                                <Border Height="6" CornerRadius="3" Background="#1A2030"/>
                                 <Track x:Name="PART_Track">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
                                             <RepeatButton.Template>
                                                 <ControlTemplate TargetType="RepeatButton">
-                                                    <Border Height="6" CornerRadius="3" Background="{DynamicResource Accent}"/>
+                                                    <Border Height="6" CornerRadius="3" Background="{DynamicResource NeonGrad}"/>
                                                 </ControlTemplate>
                                             </RepeatButton.Template>
                                         </RepeatButton>
@@ -446,7 +484,7 @@
                                         <Thumb Width="18" Height="18" Cursor="Hand">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
-                                                    <Ellipse Fill="{DynamicResource Accent}" Stroke="#0E1013" StrokeThickness="3"/>
+                                                    <Ellipse Fill="{DynamicResource Accent2}" Stroke="#0E1013" StrokeThickness="3"/>
                                                 </ControlTemplate>
                                             </Thumb.Template>
                                         </Thumb>
@@ -477,7 +515,7 @@
                                         <Thumb>
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
-                                                    <Border Background="#3A4150" CornerRadius="4" Margin="2,0"/>
+                                                    <Border Background="#3A2A52" CornerRadius="4" Margin="2,0"/>
                                                 </ControlTemplate>
                                             </Thumb.Template>
                                         </Thumb>
@@ -489,16 +527,16 @@
                 </Setter>
             </Style>
 
-            <!-- Карточка -->
+            <!-- Карточка (стекло с неоновой рамкой) -->
             <Style x:Key="Card" TargetType="Border">
                 <Setter Property="Background" Value="{DynamicResource Panel}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource NeonBorder}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="12"/>
                 <Setter Property="Padding" Value="18"/>
                 <Setter Property="Effect">
                     <Setter.Value>
-                        <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.16" Color="Black"/>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.28" Color="#19F0D8"/>
                     </Setter.Value>
                 </Setter>
             </Style>
@@ -508,12 +546,12 @@
                 <Style.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
                         <Setter Property="Background" Value="{DynamicResource PanelHover}"/>
-                        <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource Accent2}"/>
                     </Trigger>
                 </Style.Triggers>
             </Style>
 
-            <!-- Карточка сборки в списке (современная, минимал) -->
+            <!-- Карточка сборки в списке -->
             <Style x:Key="InstanceCard" TargetType="Border" BasedOn="{StaticResource Card}">
                 <Setter Property="Background" Value="{DynamicResource Panel}"/>
                 <Style.Triggers>
@@ -533,7 +571,7 @@
 
             <!-- Небольшой «чип» -->
             <Style x:Key="Chip" TargetType="Border">
-                <Setter Property="Background" Value="#22262E"/>
+                <Setter Property="Background" Value="#1A2030"/>
                 <Setter Property="CornerRadius" Value="6"/>
                 <Setter Property="Padding" Value="9,4"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
@@ -621,7 +659,6 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <!-- Рамка показывает выбранный элемент -->
                                         <Border x:Name="Sel" CornerRadius="10" Padding="2"
                                                 Background="Transparent"
                                                 BorderThickness="2" BorderBrush="Transparent">
@@ -634,7 +671,7 @@
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter TargetName="Sel" Property="BorderBrush"
-                                                        Value="{DynamicResource Accent}"/>
+                                                        Value="{DynamicResource NeonGrad}"/>
                                                 <Setter TargetName="Sel" Property="Background"
                                                         Value="{DynamicResource AccentGlow}"/>
                                             </Trigger>
@@ -658,18 +695,18 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
-                            <Border x:Name="Bd" Background="#1B1F26" CornerRadius="8" Padding="14,7"
-                                    BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+                            <Border x:Name="Bd" Background="#141A2E" CornerRadius="8" Padding="14,7"
+                                    BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1">
                                 <ContentPresenter VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#242A34"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#1B1430"/>
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A1A40"/>
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="#2A1140"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
+                                    <Setter Property="Foreground" Value="#FF8FD6"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

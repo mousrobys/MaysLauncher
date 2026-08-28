@@ -62,7 +62,7 @@ public sealed class GameInstance
     [JsonPropertyName("maxMemoryMb")] public int MaxMemoryMb { get; set; }
 
     [JsonPropertyName("extraJvmArgs")] public string ExtraJvmArgs { get; set; } = "";
-    [JsonPropertyName("iconColor")] public string IconColor { get; set; } = "#A855F7";
+    [JsonPropertyName("iconColor")] public string IconColor { get; set; } = "#4ADE80";
     [JsonPropertyName("notes")] public string Notes { get; set; } = "";
 
     /// <summary>
