@@ -64,8 +64,41 @@ public sealed class BotService
     }
 
     public static bool IsNodeInstalled() => FindNodeExe() is not null;
-    public static bool IsMineflayerInstalled() =>
-        Directory.Exists(Path.Combine(BotRoot, "node_modules", "mineflayer"));
+
+    public static bool IsMineflayerInstalled()
+    {
+        var node = FindNodeExe();
+        return node is not null && IsMineflayerLoadable(node);
+    }
+
+    /// <summary>
+    /// Реально ли mineflayer и pathfinder разрешаются и загружаются. Сама по себе
+    /// папка node_modules может существовать, но быть битой (есть package.json, а
+    /// главного файла нет) — тогда require упадёт уже при запуске бота.
+    /// </summary>
+    private static bool IsMineflayerLoadable(string nodeExe)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(nodeExe)
+            {
+                WorkingDirectory = BotRoot,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            psi.ArgumentList.Add("-e");
+            psi.ArgumentList.Add(
+                "require.resolve('mineflayer'); require.resolve('mineflayer-pathfinder');");
+            using var p = new Process { StartInfo = psi };
+            p.Start();
+            var ok = p.WaitForExit(20_000) && p.ExitCode == 0;
+            try { if (!p.HasExited) p.Kill(); } catch { }
+            return ok;
+        }
+        catch { return false; }
+    }
 
     // =====================================================================
     //  УСТАНОВКА ОКРУЖЕНИЯ
@@ -88,10 +121,19 @@ public sealed class BotService
             Output?.Invoke("Node.js найден: " + node);
         }
 
-        if (!IsMineflayerInstalled())
+        if (!IsMineflayerLoadable(node))
         {
             Output?.Invoke("Устанавливаю mineflayer (это займёт минуту)...");
             await InstallMineflayerAsync(node, ct).ConfigureAwait(false);
+
+            // Битая установка встречается — если после установки модуль не грузится,
+            // удаляем node_modules и пробуем ещё раз, чтобы бот не падал по кругу.
+            if (!IsMineflayerLoadable(node))
+            {
+                Output?.Invoke("Зависимости повреждены — переустанавливаю...");
+                try { Directory.Delete(Path.Combine(BotRoot, "node_modules"), true); } catch { }
+                await InstallMineflayerAsync(node, ct).ConfigureAwait(false);
+            }
         }
 
         WriteBotScript();
@@ -226,7 +268,7 @@ public sealed class BotService
             throw new TimeoutException("npm install не завершился за 5 минут.");
         }
 
-        if (!IsMineflayerInstalled())
+        if (!IsMineflayerLoadable(nodeExe))
             throw new InvalidOperationException(
                 "mineflayer не установился. Проверьте подключение к интернету.");
     }
@@ -254,6 +296,11 @@ public sealed class BotService
                 auth: 'offline',
                 hideErrors: false
             });
+
+            const pathfinder = require('mineflayer-pathfinder');
+            bot.loadPlugin(pathfinder.pathfinder);
+            const movements = new pathfinder.Movements(bot);
+            bot.pathfinder.setMovements(movements);
 
             let following = null;
             let ready = false;
@@ -323,14 +370,12 @@ public sealed class BotService
                 }
             }, 25000);
 
-            // Следование за игроком
+            // Следование за игроком (камеру держим на цели, движением рулит pathfinder)
             setInterval(() => {
                 if (!ready || !following || !bot.entity) return;
-                const target = bot.players[following]?.entity;
-                if (!target) return;
-                bot.lookAt(target.position.offset(0, 1.6, 0));
-                const dist = bot.entity.position.distanceTo(target.position);
-                bot.setControlState('forward', dist > 3);
+                const e = findPlayer(following)?.entity;
+                if (!e) return;
+                bot.lookAt(e.position.offset(0, 1.6, 0));
             }, 200);
 
             // Команды из лаунчера
@@ -356,6 +401,12 @@ public sealed class BotService
                 }
             });
 
+            function findPlayer(name) {
+                if (!name) return null;
+                const key = Object.keys(bot.players || {}).find(k => k.toLowerCase() === name.toLowerCase());
+                return key ? bot.players[key] : null;
+            }
+
             function handle(line) {
                 const space = line.indexOf(' ');
                 const cmd = (space < 0 ? line : line.slice(0, space)).toLowerCase();
@@ -368,29 +419,36 @@ public sealed class BotService
                             break;
                         case 'follow':
                             following = arg || null;
+                            if (following && bot.pathfinder) {
+                                const e = findPlayer(following)?.entity;
+                                if (e) { bot.pathfinder.setGoal(new pathfinder.goals.GoalFollow(e, 1)); log(`[bot] следую за ${following}`); break; }
+                            }
                             log(following ? `[bot] следую за ${following}` : '[bot] стою на месте');
                             if (!following) bot.setControlState('forward', false);
                             break;
                         case 'stop':
                             following = null;
+                            if (bot.pathfinder) bot.pathfinder.setGoal(null);
                             ['forward','back','left','right','jump','sprint','sneak']
                                 .forEach(c => bot.setControlState(c, false));
                             log('[bot] остановлен');
                             break;
                         case 'come': {
-                            const p = bot.players[arg]?.entity;
-                            if (!p) { log('[bot] игрок не найден: ' + arg); break; }
+                            const pl = findPlayer(arg);
+                            if (!pl || !pl.entity) { log('[bot] игрок не найден: ' + arg); break; }
                             following = arg;
-                            log('[bot] иду к ' + arg);
+                            if (bot.pathfinder) { bot.pathfinder.setGoal(new pathfinder.goals.GoalFollow(pl.entity, 1)); log('[bot] иду к ' + arg); }
                             break;
                         }
                         case 'jump':
                             bot.setControlState('jump', true);
-                            setTimeout(() => bot.setControlState('jump', false), 400);
+                            bot.setControlState('forward', true);
+                            setTimeout(() => { bot.setControlState('jump', false); bot.setControlState('forward', false); }, 500);
                             break;
                         case 'look': {
-                            const p = bot.players[arg]?.entity;
+                            const p = findPlayer(arg)?.entity;
                             if (p) bot.lookAt(p.position.offset(0, 1.6, 0));
+                            else log('[bot] игрок не найден: ' + (arg || '(пусто)'));
                             break;
                         }
                         case 'drop':
@@ -478,11 +536,9 @@ public sealed class BotService
         // Проверяем версию заранее — иначе бот просто молча не подключится
         if (!string.IsNullOrWhiteSpace(mcVersion) && !IsVersionSupported(mcVersion))
         {
-            var suggested = SuggestVersion(mcVersion);
-            Output?.Invoke($"[внимание] mineflayer не поддерживает Minecraft {mcVersion}.");
-            Output?.Invoke($"[внимание] пробую подключиться как {suggested} — если не выйдет, " +
-                           "откройте мир на версии 1.21.11 или ниже.");
-            mcVersion = suggested ?? "";
+            Output?.Invoke($"[внимание] версия Minecraft {mcVersion} не числится в списке поддерживаемых.");
+            Output?.Invoke("[внимание] использую автоопределение протокола сервера (auto).");
+            mcVersion = "auto";
         }
 
         var psi = new ProcessStartInfo(node)
