@@ -13,10 +13,13 @@
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+    <Border Margin="16" Background="{DynamicResource BgDeep}" CornerRadius="14"
             BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="14" ShadowDepth="0" Opacity="0.32" Color="#000000"/>
+            </Border.Effect>
         <Border.Clip>
-            <RectangleGeometry Rect="0,0,1140,700" RadiusX="14" RadiusY="14"/>
+            <RectangleGeometry Rect="0,0,1108,668" RadiusX="14" RadiusY="14"/>
         </Border.Clip>
         <Grid>
             <!-- Фоновая картинка пользователя -->
@@ -82,7 +85,8 @@
                                          IsChecked="True" Checked="Nav_Checked" Tag="0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Главная" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -92,7 +96,8 @@
                                          Checked="Nav_Checked" Tag="1">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Версии" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -102,7 +107,8 @@
                                          Checked="Nav_Checked" Tag="6">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Моды" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -112,7 +118,8 @@
                                          Checked="Nav_Checked" Tag="7">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Контент" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -122,7 +129,8 @@
                                          Checked="Nav_Checked" Tag="2">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Серверы" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -132,7 +140,8 @@
                                          Checked="Nav_Checked" Tag="8">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE99A;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Бот" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -142,7 +151,8 @@
                                          Checked="Nav_Checked" Tag="3">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Аккаунт" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -152,7 +162,8 @@
                                          Checked="Nav_Checked" Tag="9">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Скины" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -162,7 +173,8 @@
                                          Checked="Nav_Checked" Tag="4">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Настройки" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -172,7 +184,8 @@
                                          Checked="Nav_Checked" Tag="5">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
+                                                VerticalAlignment="Center"
+                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                     <TextBlock Text="Консоль" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -225,9 +238,20 @@
 
                         <!-- Баннер -->
                         <Border x:Name="HomeBanner" Grid.Row="1" Margin="0,16,0,0" CornerRadius="14" Height="188">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.22" Color="Black"/>
+                            </Border.Effect>
                             <Grid>
                                 <Image x:Name="ImgCustomBanner" Stretch="UniformToFill" Opacity="0.55"
-                                       Visibility="Collapsed"/>
+                                        Visibility="Collapsed"/>
+                                <Border IsHitTestVisible="False">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#73000000" Offset="0"/>
+                                            <GradientStop Color="#00000000" Offset="0.55"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -268,6 +292,9 @@
                         <!-- Статистика -->
                         <Border Grid.Row="2" Margin="0,14,0,0" CornerRadius="12" Background="{DynamicResource Panel}"
                                 BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="14">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.16" Color="Black"/>
+                            </Border.Effect>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -392,9 +419,14 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBox x:Name="TxtInstanceSearch" Grid.Row="0" Height="32" Margin="2,2,2,8"
-                                         Visibility="Collapsed" TextChanged="TxtInstanceSearch_Changed"
-                                         ToolTip="Поиск по названию, версии или загрузчику"/>
+                                 <Grid Grid.Row="0" Margin="4,2,4,8">
+                                     <TextBlock Text="СБОРКИ" Style="{StaticResource Caption}"
+                                                Margin="0" VerticalAlignment="Center"/>
+                                     <TextBox x:Name="TxtInstanceSearch" Width="150" Height="30"
+                                              HorizontalAlignment="Right" Visibility="Collapsed"
+                                              TextChanged="TxtInstanceSearch_Changed"
+                                              ToolTip="Поиск по названию, версии или загрузчику"/>
+                                 </Grid>
 
                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                               PreviewMouseWheel="ListScroll_PreviewMouseWheel">
@@ -422,7 +454,7 @@
                                         </ListBox.ContextMenu>
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Style="{StaticResource HoverCard}" CornerRadius="9"
+                                                <Border Style="{StaticResource InstanceCard}" CornerRadius="11"
                                                         Padding="11" BorderThickness="1"
                                                         Background="{DynamicResource Panel}">
                                                     <Border.ToolTip>
@@ -451,29 +483,45 @@
                                                             </StackPanel>
                                                         </ToolTip>
                                                     </Border.ToolTip>
-                                                    <StackPanel>
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <Border Width="18" Height="18" CornerRadius="4"
-                                                                    VerticalAlignment="Center" ClipToBounds="True">
-                                                                <Grid>
-                                                                    <Border CornerRadius="4"
-                                                                            Background="{Binding IconBrush}"/>
-                                                                    <Image Source="{Binding IconImage}"
-                                                                           Stretch="UniformToFill"/>
-                                                                </Grid>
-                                                            </Border>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="34"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border Grid.Column="0" Width="34" Height="34"
+                                                                CornerRadius="9" ClipToBounds="True"
+                                                                Background="{Binding IconBrush}">
+                                                            <Grid>
+                                                                <Border CornerRadius="9"
+                                                                        Background="{Binding IconBrush}"/>
+                                                                <Image Source="{Binding IconImage}"
+                                                                       Stretch="UniformToFill"/>
+                                                            </Grid>
+                                                        </Border>
+
+                                                        <StackPanel Grid.Column="1" Margin="11,0,8,0"
+                                                                    VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                                       FontSize="13" Margin="9,0,0,0"
-                                                                       Foreground="{DynamicResource Fg}"
-                                                                       TextTrimming="CharacterEllipsis" MaxWidth="190"/>
+                                                                       FontSize="13.5" Foreground="{DynamicResource Fg}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Margin="0,3,0,0" FontSize="11"
+                                                                       Foreground="{DynamicResource FgMuted}">
+                                                                <Run Text="{Binding McVersion, Mode=OneWay}"/>
+                                                                <Run Text=" · "/>
+                                                                <Run Text="{Binding LoaderDisplay, Mode=OneWay}"/>
+                                                            </TextBlock>
                                                         </StackPanel>
-                                                        <TextBlock Margin="19,4,0,0" FontSize="11"
-                                                                   Foreground="{DynamicResource FgMuted}">
-                                                            <Run Text="{Binding McVersion, Mode=OneWay}"/>
-                                                            <Run Text=" · "/>
-                                                            <Run Text="{Binding LoaderDisplay, Mode=OneWay}"/>
-                                                        </TextBlock>
-                                                    </StackPanel>
+
+                                                        <Border Grid.Column="2" Style="{StaticResource InstanceMetaChip}"
+                                                                Visibility="{Binding TotalPlaySeconds,
+                                                                            Converter={StaticResource PlayTimeVis}}">
+                                                            <TextBlock Text="{Binding PlayTimeDisplay}"
+                                                                       Style="{StaticResource ChipText}"
+                                                                       Foreground="{DynamicResource Fg}"/>
+                                                        </Border>
+                                                    </Grid>
                                                 </Border>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -2063,17 +2111,20 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Адрес" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotHost" Text="localhost" Height="36"/>
+                                        <TextBox x:Name="TxtBotHost" Text="localhost" Height="36"
+                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
                                         <TextBlock Text="Порт" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotPort" Text="25565" Width="92" Height="36"/>
+                                        <TextBox x:Name="TxtBotPort" Text="25565" Width="92" Height="36"
+                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Margin="10,0,0,0">
                                         <TextBlock Text="Ник бота" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotName" Text="MaysBot" Width="140" Height="36"/>
+                                        <TextBox x:Name="TxtBotName" Text="MaysBot" Width="140" Height="36"
+                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="3" Margin="10,0,0,0">
@@ -2183,6 +2234,7 @@
 
                                     <TextBlock Text="Ваш ник в игре" Style="{StaticResource Caption}"/>
                                     <TextBox x:Name="TxtBotOwner" Text=""
+                                             Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"
                                              ToolTip="За кем следовать / на кого смотреть"/>
                                 </StackPanel>
                             </Border>
@@ -2210,6 +2262,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="TxtBotChat" Grid.Column="0" Height="36"
+                                             Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"
                                              KeyDown="TxtBotChat_KeyDown"
                                              ToolTip="Сообщение в чат от имени бота"/>
                                     <Button Grid.Column="1" Style="{StaticResource IconButton}"
