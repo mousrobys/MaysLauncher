@@ -295,23 +295,30 @@ public static class ThemeService
                     string.Equals(x.Key, variant, StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrEmpty(v.Key)) v = NeonVariants[0];
 
+        Color ca, cb;
         if (!enabled)
         {
-            var neutral = (Color)ColorConverter.ConvertFromString("#3A4150");
-            res["NeonColorA"]   = neutral;
-            res["NeonColorB"]   = neutral;
+            ca = (Color)ColorConverter.ConvertFromString("#3A4150");
+            cb = ca;
             res["NeonGlowColor"]   = Colors.Transparent;
             res["NeonGlowColor2"]  = Colors.Transparent;
-            return;
+        }
+        else
+        {
+            ca = (Color)ColorConverter.ConvertFromString(v.A);
+            cb = (Color)ColorConverter.ConvertFromString(v.B);
+            res["NeonGlowColor"]   = ca;
+            res["NeonGlowColor2"]  = cb;
         }
 
-        var ca = (Color)ColorConverter.ConvertFromString(v.A);
-        var cb = (Color)ColorConverter.ConvertFromString(v.B);
+        res["NeonColorA"] = ca;
+        res["NeonColorB"] = cb;
 
-        res["NeonColorA"]   = ca;
-        res["NeonColorB"]   = cb;
-        res["NeonGlowColor"]   = ca;
-        res["NeonGlowColor2"]  = cb;
+        // Brush-ресурсы: обновляются через DynamicResource на Brush-свойствах
+        // (BorderBrush/Background), поэтому меняют цвет мгновенно и без краша.
+        res["Accent2"]   = Freeze(new SolidColorBrush(cb));
+        res["NeonBorder"] = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));
+        res["NeonGrad"]   = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));
     }
 
     // =====================================================================
@@ -329,10 +336,10 @@ public static class ThemeService
         return Color.FromArgb(alpha, c.R, c.G, c.B);
     }
 
-    private static SolidColorBrush Freeze(SolidColorBrush b)
+    private static T Freeze<T>(T f) where T : Freezable
     {
-        b.Freeze();
-        return b;
+        f.Freeze();
+        return f;
     }
 
     public static Color Darken(Color c, double factor) => Color.FromRgb(
