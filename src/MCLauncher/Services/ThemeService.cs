@@ -302,6 +302,9 @@ public static class ThemeService
             cb = ca;
             res["NeonGlowColor"]   = Colors.Transparent;
             res["NeonGlowColor2"]  = Colors.Transparent;
+            // Фоновые ореолы исчезают — чистый вид без неона
+            res["NeonColorA"]      = Colors.Transparent;
+            res["NeonColorB"]      = Colors.Transparent;
         }
         else
         {
@@ -309,13 +312,10 @@ public static class ThemeService
             cb = (Color)ColorConverter.ConvertFromString(v.B);
             res["NeonGlowColor"]   = ca;
             res["NeonGlowColor2"]  = cb;
+            res["NeonColorA"] = ca;
+            res["NeonColorB"] = cb;
         }
 
-        res["NeonColorA"] = ca;
-        res["NeonColorB"] = cb;
-
-        // Brush-ресурсы: обновляются через DynamicResource на Brush-свойствах
-        // (BorderBrush/Background), поэтому меняют цвет мгновенно и без краша.
         res["Accent2"]   = Freeze(new SolidColorBrush(cb));
         res["NeonBorder"] = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));
         res["NeonGrad"]   = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));

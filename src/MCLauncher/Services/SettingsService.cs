@@ -58,7 +58,7 @@ public sealed class LauncherSettings
     [JsonPropertyName("theme")] public string Theme { get; set; } = "Тёмная";
 
     /// <summary>Включить неоновое свечение интерфейса.</summary>
-    [JsonPropertyName("neonEnabled")] public bool NeonEnabled { get; set; } = true;
+    [JsonPropertyName("neonEnabled")] public bool NeonEnabled { get; set; } = false;
 
     /// <summary>Вариант неоновой палитры (ключ из ThemeService.NeonVariants).</summary>
     [JsonPropertyName("neonVariant")] public string NeonVariant { get; set; } = "PinkTurq";
