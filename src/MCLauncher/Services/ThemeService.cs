@@ -298,20 +298,20 @@ public static class ThemeService
         if (!enabled)
         {
             var neutral = (Color)ColorConverter.ConvertFromString("#3A4150");
-            res["NeonColorA"]   = Freeze(new SolidColorBrush(neutral));
-            res["NeonColorB"]   = Freeze(new SolidColorBrush(neutral));
-            res["NeonGlowColor"]   = Freeze(new SolidColorBrush(Colors.Transparent));
-            res["NeonGlowColor2"]  = Freeze(new SolidColorBrush(Colors.Transparent));
+            res["NeonColorA"]   = neutral;
+            res["NeonColorB"]   = neutral;
+            res["NeonGlowColor"]   = Colors.Transparent;
+            res["NeonGlowColor2"]  = Colors.Transparent;
             return;
         }
 
         var ca = (Color)ColorConverter.ConvertFromString(v.A);
         var cb = (Color)ColorConverter.ConvertFromString(v.B);
 
-        res["NeonColorA"]   = Freeze(new SolidColorBrush(ca));
-        res["NeonColorB"]   = Freeze(new SolidColorBrush(cb));
-        res["NeonGlowColor"]   = Freeze(new SolidColorBrush(ca));
-        res["NeonGlowColor2"]  = Freeze(new SolidColorBrush(cb));
+        res["NeonColorA"]   = ca;
+        res["NeonColorB"]   = cb;
+        res["NeonGlowColor"]   = ca;
+        res["NeonGlowColor2"]  = cb;
     }
 
     // =====================================================================
