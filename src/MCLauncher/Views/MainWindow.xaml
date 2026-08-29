@@ -13,43 +13,14 @@
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <Border Margin="16" Background="{DynamicResource CyberBg}" CornerRadius="14"
-            BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1.5">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.5" Color="{DynamicResource NeonGlowColor}"/>
-            </Border.Effect>
+    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
         <Border.Clip>
-            <RectangleGeometry Rect="0,0,1108,668" RadiusX="14" RadiusY="14"/>
+            <RectangleGeometry Rect="0,0,1140,700" RadiusX="14" RadiusY="14"/>
         </Border.Clip>
         <Grid>
             <!-- Фоновая картинка пользователя -->
             <Rectangle x:Name="WindowBgLayer" Fill="Transparent" IsHitTestVisible="False"/>
-
-            <!-- Атмосферный неоновый фон (розовый + бирюза) -->
-            <Ellipse Width="560" Height="560" HorizontalAlignment="Right" VerticalAlignment="Top"
-                     Margin="180,-200,-60,0" IsHitTestVisible="False" Opacity="0.30">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="{DynamicResource NeonColorA}" Offset="0"/>
-                        <GradientStop Color="#00000000" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-                <Ellipse.Effect>
-                    <BlurEffect Radius="140"/>
-                </Ellipse.Effect>
-            </Ellipse>
-            <Ellipse Width="520" Height="520" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                     Margin="-160,0,-40,80" IsHitTestVisible="False" Opacity="0.26">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="{DynamicResource NeonColorB}" Offset="0"/>
-                        <GradientStop Color="#00000000" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-                <Ellipse.Effect>
-                    <BlurEffect Radius="140"/>
-                </Ellipse.Effect>
-            </Ellipse>
 
             <Grid>
             <Grid.RowDefinitions>
@@ -98,8 +69,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- НАВИГАЦИЯ -->
-                <Border Grid.Column="0" Background="{DynamicResource Bg}" CornerRadius="0,0,0,13"
-                        BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1">
+                <Border Grid.Column="0" Background="{DynamicResource Bg}" CornerRadius="0,0,0,13">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
@@ -112,8 +82,7 @@
                                          IsChecked="True" Checked="Nav_Checked" Tag="0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Главная" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -123,8 +92,7 @@
                                          Checked="Nav_Checked" Tag="1">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Версии" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -134,8 +102,7 @@
                                          Checked="Nav_Checked" Tag="6">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Моды" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -145,8 +112,7 @@
                                          Checked="Nav_Checked" Tag="7">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Контент" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -156,8 +122,7 @@
                                          Checked="Nav_Checked" Tag="2">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Серверы" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -167,8 +132,7 @@
                                          Checked="Nav_Checked" Tag="8">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE99A;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Бот" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -178,8 +142,7 @@
                                          Checked="Nav_Checked" Tag="3">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Аккаунт" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -189,8 +152,7 @@
                                          Checked="Nav_Checked" Tag="9">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Скины" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -200,8 +162,7 @@
                                          Checked="Nav_Checked" Tag="4">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Настройки" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -211,8 +172,7 @@
                                          Checked="Nav_Checked" Tag="5">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                                VerticalAlignment="Center"
-                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                               VerticalAlignment="Center" Foreground="{DynamicResource Accent}"/>
                                     <TextBlock Text="Консоль" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </StackPanel>
@@ -265,20 +225,9 @@
 
                         <!-- Баннер -->
                         <Border x:Name="HomeBanner" Grid.Row="1" Margin="0,16,0,0" CornerRadius="14" Height="188">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.22" Color="Black"/>
-                            </Border.Effect>
                             <Grid>
                                 <Image x:Name="ImgCustomBanner" Stretch="UniformToFill" Opacity="0.55"
-                                        Visibility="Collapsed"/>
-                                <Border IsHitTestVisible="False">
-                                    <Border.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Color="#73000000" Offset="0"/>
-                                            <GradientStop Color="#00000000" Offset="0.55"/>
-                                        </LinearGradientBrush>
-                                    </Border.Background>
-                                </Border>
+                                       Visibility="Collapsed"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -319,9 +268,6 @@
                         <!-- Статистика -->
                         <Border Grid.Row="2" Margin="0,14,0,0" CornerRadius="12" Background="{DynamicResource Panel}"
                                 BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="14">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.16" Color="Black"/>
-                            </Border.Effect>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -446,14 +392,9 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
-                                 <Grid Grid.Row="0" Margin="4,2,4,8">
-                                     <TextBlock Text="СБОРКИ" Style="{StaticResource Caption}"
-                                                Margin="0" VerticalAlignment="Center"/>
-                                     <TextBox x:Name="TxtInstanceSearch" Width="150" Height="30"
-                                              HorizontalAlignment="Right" Visibility="Collapsed"
-                                              TextChanged="TxtInstanceSearch_Changed"
-                                              ToolTip="Поиск по названию, версии или загрузчику"/>
-                                 </Grid>
+                                <TextBox x:Name="TxtInstanceSearch" Grid.Row="0" Height="32" Margin="2,2,2,8"
+                                         Visibility="Collapsed" TextChanged="TxtInstanceSearch_Changed"
+                                         ToolTip="Поиск по названию, версии или загрузчику"/>
 
                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                               PreviewMouseWheel="ListScroll_PreviewMouseWheel">
@@ -481,7 +422,7 @@
                                         </ListBox.ContextMenu>
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Style="{StaticResource InstanceCard}" CornerRadius="11"
+                                                <Border Style="{StaticResource HoverCard}" CornerRadius="9"
                                                         Padding="11" BorderThickness="1"
                                                         Background="{DynamicResource Panel}">
                                                     <Border.ToolTip>
@@ -510,45 +451,29 @@
                                                             </StackPanel>
                                                         </ToolTip>
                                                     </Border.ToolTip>
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="34"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <Border Grid.Column="0" Width="34" Height="34"
-                                                                CornerRadius="9" ClipToBounds="True"
-                                                                Background="{Binding IconBrush}">
-                                                            <Grid>
-                                                                <Border CornerRadius="9"
-                                                                        Background="{Binding IconBrush}"/>
-                                                                <Image Source="{Binding IconImage}"
-                                                                       Stretch="UniformToFill"/>
-                                                            </Grid>
-                                                        </Border>
-
-                                                        <StackPanel Grid.Column="1" Margin="11,0,8,0"
-                                                                    VerticalAlignment="Center">
+                                                    <StackPanel>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Border Width="18" Height="18" CornerRadius="4"
+                                                                    VerticalAlignment="Center" ClipToBounds="True">
+                                                                <Grid>
+                                                                    <Border CornerRadius="4"
+                                                                            Background="{Binding IconBrush}"/>
+                                                                    <Image Source="{Binding IconImage}"
+                                                                           Stretch="UniformToFill"/>
+                                                                </Grid>
+                                                            </Border>
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                                       FontSize="13.5" Foreground="{DynamicResource Fg}"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Margin="0,3,0,0" FontSize="11"
-                                                                       Foreground="{DynamicResource FgMuted}">
-                                                                <Run Text="{Binding McVersion, Mode=OneWay}"/>
-                                                                <Run Text=" · "/>
-                                                                <Run Text="{Binding LoaderDisplay, Mode=OneWay}"/>
-                                                            </TextBlock>
+                                                                       FontSize="13" Margin="9,0,0,0"
+                                                                       Foreground="{DynamicResource Fg}"
+                                                                       TextTrimming="CharacterEllipsis" MaxWidth="190"/>
                                                         </StackPanel>
-
-                                                        <Border Grid.Column="2" Style="{StaticResource InstanceMetaChip}"
-                                                                Visibility="{Binding TotalPlaySeconds,
-                                                                            Converter={StaticResource PlayTimeVis}}">
-                                                            <TextBlock Text="{Binding PlayTimeDisplay}"
-                                                                       Style="{StaticResource ChipText}"
-                                                                       Foreground="{DynamicResource Fg}"/>
-                                                        </Border>
-                                                    </Grid>
+                                                        <TextBlock Margin="19,4,0,0" FontSize="11"
+                                                                   Foreground="{DynamicResource FgMuted}">
+                                                            <Run Text="{Binding McVersion, Mode=OneWay}"/>
+                                                            <Run Text=" · "/>
+                                                            <Run Text="{Binding LoaderDisplay, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
                                                 </Border>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -1493,39 +1418,6 @@
 
                                     <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                                         <StackPanel>
-                                            <TextBlock Text="НЕОНОВОЕ СВЕЧЕНИЕ" Style="{StaticResource Caption}"/>
-                                            <CheckBox x:Name="ChkNeon" Content="Включить неоновое свечение"
-                                                      Margin="0,8,0,4" Checked="NeonToggle_Changed"
-                                                      Unchecked="NeonToggle_Changed"/>
-                                            <TextBlock Text="Палитра свечения и неоновых границ интерфейса."
-                                                       Foreground="{DynamicResource FgMuted}" FontSize="11.5"
-                                                       Margin="0,0,0,10" TextWrapping="Wrap"/>
-                                            <ItemsControl x:Name="ItemsNeon">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Width="46" Height="46" CornerRadius="10"
-                                                                Margin="0,0,9,9" Cursor="Hand"
-                                                                MouseLeftButtonUp="NeonSwatch_Click"
-                                                                Tag="{Binding Key}" BorderThickness="2"
-                                                                BorderBrush="{Binding Border}">
-                                                            <Border.Background>
-                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                                    <GradientStop Color="{Binding A}" Offset="0"/>
-                                                                    <GradientStop Color="{Binding B}" Offset="1"/>
-                                                                </LinearGradientBrush>
-                                                            </Border.Background>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                                        <StackPanel>
                                             <TextBlock Text="ФОН ГЛАВНОГО ЭКРАНА" Style="{StaticResource Caption}"/>
                                             <StackPanel x:Name="PanelBgStyles" Orientation="Horizontal"/>
                                             <Grid Margin="0,14,0,0">
@@ -2171,20 +2063,17 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Адрес" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotHost" Text="localhost" Height="36"
-                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
+                                        <TextBox x:Name="TxtBotHost" Text="localhost" Height="36"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
                                         <TextBlock Text="Порт" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotPort" Text="25565" Width="92" Height="36"
-                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
+                                        <TextBox x:Name="TxtBotPort" Text="25565" Width="92" Height="36"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Margin="10,0,0,0">
                                         <TextBlock Text="Ник бота" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="TxtBotName" Text="MaysBot" Width="140" Height="36"
-                                                 Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"/>
+                                        <TextBox x:Name="TxtBotName" Text="MaysBot" Width="140" Height="36"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="3" Margin="10,0,0,0">
@@ -2294,7 +2183,6 @@
 
                                     <TextBlock Text="Ваш ник в игре" Style="{StaticResource Caption}"/>
                                     <TextBox x:Name="TxtBotOwner" Text=""
-                                             Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"
                                              ToolTip="За кем следовать / на кого смотреть"/>
                                 </StackPanel>
                             </Border>
@@ -2322,7 +2210,6 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="TxtBotChat" Grid.Column="0" Height="36"
-                                             Foreground="{DynamicResource Fg}" Background="{DynamicResource Panel}"
                                              KeyDown="TxtBotChat_KeyDown"
                                              ToolTip="Сообщение в чат от имени бота"/>
                                     <Button Grid.Column="1" Style="{StaticResource IconButton}"

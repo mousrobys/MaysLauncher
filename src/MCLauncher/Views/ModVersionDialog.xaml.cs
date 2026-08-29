@@ -16,15 +16,12 @@ public partial class ModVersionDialog : Window
 {
     private readonly ModService _mods;
     private readonly ModSearchResult _project;
-    private string _instanceMcVersion = "";
-    private LoaderKind _instanceLoader = LoaderKind.Vanilla;
+    private readonly string _instanceMcVersion;
+    private readonly LoaderKind _instanceLoader;
 
     private List<ModFile> _all = new();
     private List<ModFile> _shown = new();
     private CancellationTokenSource? _cts;
-
-    private List<GameInstance> _instances = new();
-    private GameInstance _currentInstance = null!;
 
     private const string AnyValue = "\u0000any";
 
@@ -35,36 +32,19 @@ public partial class ModVersionDialog : Window
     /// <summary>Версия игры, под которую пользователь ставит мод.</summary>
     public string TargetMcVersion { get; private set; }
 
-    /// <summary>Сборка (инстанс) лаунчера, куда устанавливается мод.</summary>
-    public GameInstance TargetInstance => _currentInstance;
-
-    public ModVersionDialog(ModService mods, ModSearchResult project, List<GameInstance> instances, GameInstance current)
+    public ModVersionDialog(ModService mods, ModSearchResult project, string mcVersion, LoaderKind loader)
     {
         InitializeComponent();
 
         _mods = mods;
         _project = project;
-        _instances = instances;
-        _currentInstance = current;
-        _instanceMcVersion = current.McVersion;
-        _instanceLoader = current.Loader;
-        TargetMcVersion = current.McVersion;
+        _instanceMcVersion = mcVersion;
+        _instanceLoader = loader;
+        TargetMcVersion = mcVersion;
 
         TxtTitle.Text = project.Title;
         TxtSubtitle.Text = $"{project.ProviderDisplay} · {project.DownloadsDisplay} загрузок";
         TxtInitial.Text = project.Title.Length > 0 ? project.Title[..1].ToUpperInvariant() : "?";
-
-        // Список установленных в лаунчере сборок — куда можно поставить мод
-        var items = _instances.Select(i => new ComboBoxItem
-        {
-            Content = string.IsNullOrWhiteSpace(i.McVersion)
-                ? $"{i.Name} (версия не задана)"
-                : $"{i.McVersion} · {i.Loader.Display()} — {i.Name}",
-            Tag = i
-        }).ToList();
-        CbInstance.ItemsSource = items;
-        CbInstance.SelectedItem = items.FirstOrDefault(x =>
-            x.Tag is GameInstance g && g.Id == current.Id) ?? items.FirstOrDefault();
 
         Loaded += OnLoadedAsync;
         Closed += (_, _) => _cts?.Cancel();
@@ -271,7 +251,7 @@ public partial class ModVersionDialog : Window
 
         var (typeText, typeBg, typeFg) = f.ReleaseType.ToLowerInvariant() switch
         {
-            "release" => ("RELEASE", "#2A1A40", "#A855F7"),
+            "release" => ("RELEASE", "#14301F", "#4ADE80"),
             "beta" => ("BETA", "#33280F", "#FACC15"),
             _ => ("ALPHA", "#331A1A", "#F87171")
         };
@@ -306,19 +286,6 @@ public partial class ModVersionDialog : Window
     private void Filter_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || _all.Count == 0) return;
-        ApplyFilter();
-    }
-
-    private void Instance_Changed(object sender, SelectionChangedEventArgs e)
-    {
-        if (!IsLoaded || _instances.Count == 0) return;
-        if (CbInstance.SelectedItem is not ComboBoxItem item || item.Tag is not GameInstance sel) return;
-        if (sel.Id == _currentInstance.Id) return;
-
-        _currentInstance = sel;
-        _instanceMcVersion = sel.McVersion;
-        _instanceLoader = sel.Loader;
-        BuildFilters();
         ApplyFilter();
     }
 

@@ -34,7 +34,7 @@ public sealed class LauncherSettings
     // ---------- Внешний вид ----------
 
     /// <summary>Цвет акцента в формате #RRGGBB.</summary>
-    [JsonPropertyName("accentColor")] public string AccentColor { get; set; } = "#A855F7";
+    [JsonPropertyName("accentColor")] public string AccentColor { get; set; } = "#4ADE80";
 
     /// <summary>Пресет фона главного экрана.</summary>
     [JsonPropertyName("backgroundStyle")] public string BackgroundStyle { get; set; } = "Изумруд";
@@ -56,12 +56,6 @@ public sealed class LauncherSettings
 
     /// <summary>Название цветовой схемы.</summary>
     [JsonPropertyName("theme")] public string Theme { get; set; } = "Тёмная";
-
-    /// <summary>Включить неоновое свечение интерфейса.</summary>
-    [JsonPropertyName("neonEnabled")] public bool NeonEnabled { get; set; } = false;
-
-    /// <summary>Вариант неоновой палитры (ключ из ThemeService.NeonVariants).</summary>
-    [JsonPropertyName("neonVariant")] public string NeonVariant { get; set; } = "PinkTurq";
 
     /// <summary>Своя картинка на фон всего окна.</summary>
     [JsonPropertyName("windowBackground")] public string WindowBackgroundPath { get; set; } = "";
@@ -123,8 +117,7 @@ public static class SettingsService
                 if (s is not null)
                 {
                     if (string.IsNullOrWhiteSpace(s.GameDir)) s.GameDir = LauncherPaths.Root;
-                    if (string.IsNullOrWhiteSpace(s.AccentColor) || s.AccentColor == "#4ADE80")
-                        s.AccentColor = "#A855F7";
+                    if (string.IsNullOrWhiteSpace(s.AccentColor)) s.AccentColor = "#4ADE80";
                     return s;
                 }
             }

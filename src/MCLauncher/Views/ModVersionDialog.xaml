@@ -11,11 +11,8 @@
         Background="Transparent"
         FontFamily="Segoe UI, Tahoma, Arial">
 
-    <Border Background="{DynamicResource CyberBg}" CornerRadius="14"
-            BorderBrush="{DynamicResource NeonBorder}" BorderThickness="1.5">
-        <Border.Effect>
-                <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.5" Color="{DynamicResource NeonGlowColor}"/>
-        </Border.Effect>
+    <Border Background="{DynamicResource BgDeep}" CornerRadius="14"
+            BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1">
         <Grid Margin="22">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -52,48 +49,43 @@
                         VerticalAlignment="Top" Click="BtnCancel_Click"/>
             </Grid>
 
-            <!-- Выбор сборки, версии игры и фильтры -->
+            <!-- Выбор версии игры и фильтры -->
             <Border Grid.Row="1" Margin="0,16,0,0" Background="{DynamicResource Bg}" CornerRadius="10"
                     BorderBrush="{DynamicResource BorderBrushDark}" BorderThickness="1" Padding="12">
-                <StackPanel>
-                    <TextBlock Text="УСТАНОВИТЬ В СБОРКУ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="CbInstance" Height="34" SelectionChanged="Instance_Changed"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="ВЕРСИЯ ИГРЫ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbGameVersion" Width="140" Height="34"
+                                  SelectionChanged="Filter_Changed"/>
+                    </StackPanel>
 
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="ВЕРСИЯ ИГРЫ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                            <ComboBox x:Name="CbGameVersion" Width="140" Height="34"
-                                      SelectionChanged="Filter_Changed"/>
-                        </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                        <TextBlock Text="ЗАГРУЗЧИК" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbLoader" Width="130" Height="34"
+                                  SelectionChanged="Filter_Changed"/>
+                    </StackPanel>
 
-                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                            <TextBlock Text="ЗАГРУЗЧИК" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                            <ComboBox x:Name="CbLoader" Width="130" Height="34"
-                                      SelectionChanged="Filter_Changed"/>
-                        </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                        <TextBlock Text="КАНАЛ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CbChannel" Width="130" Height="34"
+                                  SelectionChanged="Filter_Changed">
+                            <ComboBoxItem Content="Все" IsSelected="True" Tag="all"/>
+                            <ComboBoxItem Content="Только release" Tag="release"/>
+                        </ComboBox>
+                    </StackPanel>
 
-                        <StackPanel Grid.Column="2" Margin="12,0,0,0">
-                            <TextBlock Text="КАНАЛ" Style="{StaticResource Caption}" Margin="0,0,0,5"/>
-                            <ComboBox x:Name="CbChannel" Width="130" Height="34"
-                                      SelectionChanged="Filter_Changed">
-                                <ComboBoxItem Content="Все" IsSelected="True" Tag="all"/>
-                                <ComboBoxItem Content="Только release" Tag="release"/>
-                            </ComboBox>
-                        </StackPanel>
-
-                        <TextBlock x:Name="TxtMatchInfo" Grid.Column="3" Text="" VerticalAlignment="Bottom"
-                                   HorizontalAlignment="Right" Margin="12,0,0,9"
-                                   Foreground="{DynamicResource FgMuted}" FontSize="11"
-                                   TextWrapping="Wrap" MaxWidth="200" TextAlignment="Right"/>
-                    </Grid>
-                </StackPanel>
+                    <TextBlock x:Name="TxtMatchInfo" Grid.Column="3" Text="" VerticalAlignment="Bottom"
+                               HorizontalAlignment="Right" Margin="12,0,0,9"
+                               Foreground="{DynamicResource FgMuted}" FontSize="11"
+                               TextWrapping="Wrap" MaxWidth="180" TextAlignment="Right"/>
+                </Grid>
             </Border>
 
             <!-- Список версий -->

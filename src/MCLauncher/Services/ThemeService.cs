@@ -26,7 +26,7 @@ public sealed class ThemePreset
 public static class ThemeService
 {
     public static Color CurrentAccent { get; private set; } =
-        (Color)ColorConverter.ConvertFromString("#FF2D95");
+        (Color)ColorConverter.ConvertFromString("#4ADE80");
 
     private static ThemePreset? _current;
     public static ThemePreset CurrentTheme => _current ??= Presets[0];
@@ -34,11 +34,6 @@ public static class ThemeService
     /// <summary>Встроенные схемы.</summary>
     public static readonly ThemePreset[] Presets =
     {
-        new()
-        {
-            Name = "Кибер", BgDeep = "#160A2E", Bg = "#0A1226", Panel = "#101A2E",
-            PanelHover = "#16233D", Border = "#21364F", Text = "#E7F0FB", TextMuted = "#7E93AD"
-        },
         new()
         {
             Name = "Тёмная", BgDeep = "#0E1013", Bg = "#14171C", Panel = "#1B1F26",
@@ -137,8 +132,6 @@ public static class ThemeService
         SetBrush(res, "BorderBrushDark", preset.Border);
         SetBrush(res, "Fg", preset.Text);
         SetBrush(res, "FgMuted", preset.TextMuted);
-        SetBrush(res, "Text", preset.Text);
-        SetBrush(res, "Muted", preset.TextMuted);
 
         res["BgDeepColor"] = ToColor(preset.BgDeep);
         res["BgColor"] = ToColor(preset.Bg);
@@ -147,27 +140,18 @@ public static class ThemeService
 
         // Цвет текста на акцентной кнопке зависит от светлоты темы
         res["OnAccent"] = Freeze(new SolidColorBrush(
-            preset.IsLight ? Colors.White : Colors.White));
+            preset.IsLight ? Colors.White : (Color)ColorConverter.ConvertFromString("#08130C")));
 
         // Поле ввода и лог на светлой теме нужно перекрасить отдельно
         res["ConsoleBg"] = Freeze(new SolidColorBrush(ToColor(preset.IsLight ? "#FFFFFF" : "#0B0D10")));
         res["ConsoleFg"] = Freeze(new SolidColorBrush(ToColor(preset.IsLight ? "#39424F" : "#A8B4C4")));
-
-        // Glassmorphism: тёмные темы делаем полупрозрачными — панели становятся
-        // стеклянными поверх размытого фона окна (DWM blur-behind).
-        if (!preset.IsLight)
-        {
-            res["Panel"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.Panel, 140)));
-            res["PanelHover"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.PanelHover, 165)));
-            res["Bg"] = Freeze(new SolidColorBrush(ToColorAlpha(preset.Bg, 205)));
-        }
     }
 
     public static void ApplyAccent(string hex)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(hex)) hex = "#FF2D95";
+            if (string.IsNullOrWhiteSpace(hex)) return;
             if (!hex.StartsWith('#')) hex = "#" + hex;
 
             var color = (Color)ColorConverter.ConvertFromString(hex);
@@ -268,60 +252,6 @@ public static class ThemeService
     public static readonly string[] BackgroundStyles = { "Изумруд", "Ночь", "Космос", "Закат", "Графит" };
 
     // =====================================================================
-    //  НЕОН
-    // =====================================================================
-
-    /// <summary>Доступные неоновые палитры: ключ, название, цвет A, цвет B.</summary>
-    public static readonly (string Key, string Name, string A, string B)[] NeonVariants =
-    {
-        ("PinkTurq",   "Розовый + бирюза",  "#FF2D95", "#19F0D8"),
-        ("PurpleCyan", "Фиолет + циан",     "#B14BFF", "#19D3F0"),
-        ("AcidGreen",  "Кислотный зелёный", "#39FF14", "#00E5FF"),
-        ("GoldRose",   "Золото + розовый",  "#FF9D00", "#FF3D81"),
-        ("Ice",        "Ледяной",           "#5BC0FF", "#B388FF"),
-        ("RedBlue",    "Красный + синий",   "#FF3B6B", "#3B82F6")
-    };
-
-    /// <summary>
-    /// Применяет неоновую палитру. При <paramref name="enabled"/>=false свечение
-    /// отключается, а рамки становятся нейтрально-серыми.
-    /// </summary>
-    public static void ApplyNeon(bool enabled, string variant)
-    {
-        var res = Application.Current?.Resources;
-        if (res is null) return;
-
-        var v = NeonVariants.FirstOrDefault(x =>
-                    string.Equals(x.Key, variant, StringComparison.OrdinalIgnoreCase));
-        if (string.IsNullOrEmpty(v.Key)) v = NeonVariants[0];
-
-        Color ca, cb;
-        if (!enabled)
-        {
-            ca = (Color)ColorConverter.ConvertFromString("#3A4150");
-            cb = ca;
-            res["NeonGlowColor"]   = Colors.Transparent;
-            res["NeonGlowColor2"]  = Colors.Transparent;
-            // Фоновые ореолы исчезают — чистый вид без неона
-            res["NeonColorA"]      = Colors.Transparent;
-            res["NeonColorB"]      = Colors.Transparent;
-        }
-        else
-        {
-            ca = (Color)ColorConverter.ConvertFromString(v.A);
-            cb = (Color)ColorConverter.ConvertFromString(v.B);
-            res["NeonGlowColor"]   = ca;
-            res["NeonGlowColor2"]  = cb;
-            res["NeonColorA"] = ca;
-            res["NeonColorB"] = cb;
-        }
-
-        res["Accent2"]   = Freeze(new SolidColorBrush(cb));
-        res["NeonBorder"] = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));
-        res["NeonGrad"]   = Freeze(new LinearGradientBrush(ca, cb, new Point(0, 0), new Point(1, 1)));
-    }
-
-    // =====================================================================
     //  ХЕЛПЕРЫ
     // =====================================================================
 
@@ -330,16 +260,10 @@ public static class ThemeService
 
     private static Color ToColor(string hex) => (Color)ColorConverter.ConvertFromString(hex);
 
-    private static Color ToColorAlpha(string hex, byte alpha)
+    private static SolidColorBrush Freeze(SolidColorBrush b)
     {
-        var c = ToColor(hex);
-        return Color.FromArgb(alpha, c.R, c.G, c.B);
-    }
-
-    private static T Freeze<T>(T f) where T : Freezable
-    {
-        f.Freeze();
-        return f;
+        b.Freeze();
+        return b;
     }
 
     public static Color Darken(Color c, double factor) => Color.FromRgb(
