@@ -41,18 +41,18 @@
             <SolidColorBrush x:Key="Border" Color="{StaticResource BorderColor}"/>
 
             <!-- Вторичный неоновый акцент (B) -->
-            <SolidColorBrush x:Key="Accent2" Color="{DynamicResource NeonColorB}"/>
+            <SolidColorBrush x:Key="Accent2"                                               Color="{StaticResource NeonColorB}"/>
 
             <!-- Градиентная неоновая рамка (A -> B) -->
             <LinearGradientBrush x:Key="NeonBorder" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{DynamicResource NeonColorA}" Offset="0"/>
-                <GradientStop Color="{DynamicResource NeonColorB}" Offset="1"/>
+                <GradientStop                                               Color="{StaticResource NeonColorA}" Offset="0"/>
+                <GradientStop                                               Color="{StaticResource NeonColorB}" Offset="1"/>
             </LinearGradientBrush>
 
             <!-- Заливка неоновой кнопки (A -> B) -->
             <LinearGradientBrush x:Key="NeonGrad" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{DynamicResource NeonColorA}" Offset="0"/>
-                <GradientStop Color="{DynamicResource NeonColorB}" Offset="1"/>
+                <GradientStop                                               Color="{StaticResource NeonColorA}" Offset="0"/>
+                <GradientStop                                               Color="{StaticResource NeonColorB}" Offset="1"/>
             </LinearGradientBrush>
 
             <!-- Кибер-фон окна (полупрозрачный — поверх размытого рабочего стола) -->
@@ -117,7 +117,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="14" ShadowDepth="0"
-                                                             Opacity="0.45" Color="{DynamicResource NeonGlowColor}"/>
+                                                             Opacity="0.45"                                                              Color="{StaticResource NeonGlowColor}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -156,7 +156,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="18" ShadowDepth="0"
-                                                             Opacity="0.6" Color="{DynamicResource NeonGlowColor2}"/>
+                                                             Opacity="0.6"                                                              Color="{StaticResource NeonGlowColor2}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -254,7 +254,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="12" ShadowDepth="0"
-                                                             Opacity="0.4" Color="{DynamicResource NeonGlowColor}"/>
+                                                             Opacity="0.4"                                                              Color="{StaticResource NeonGlowColor}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -314,7 +314,7 @@
                                             BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
                                             MinWidth="{TemplateBinding ActualWidth}" MaxHeight="320">
                                         <Border.Effect>
-                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="{DynamicResource NeonGlowColor2}"/>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55"                                                              Color="{StaticResource NeonGlowColor2}"/>
                                         </Border.Effect>
                                         <ScrollViewer Margin="4" SnapsToDevicePixels="True">
                                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
@@ -380,7 +380,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="10" ShadowDepth="0"
-                                                             Opacity="0.35" Color="{DynamicResource NeonGlowColor2}"/>
+                                                             Opacity="0.35"                                                              Color="{StaticResource NeonGlowColor2}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
