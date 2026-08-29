@@ -20,14 +20,18 @@ public partial class ThemeEditorDialog : Window
 
     private readonly List<Field> _fields = new();
     private readonly Color _accent;
+    private string _accentHex = "#A855F7";
+    private Field? _accentField;
 
     public ThemePreset? Result { get; private set; }
+    public string? AccentHex { get; private set; }
 
     public ThemeEditorDialog(ThemePreset? existing, Color accent)
     {
         InitializeComponent();
 
         _accent = accent;
+        _accentHex = ToHex(accent);
 
         var start = existing ?? ThemeService.Presets[0];
         BuildFields(start);
@@ -106,6 +110,66 @@ public partial class ThemeEditorDialog : Window
             UpdateSwatch(field);
             PanelFields.Children.Add(grid);
         }
+
+        AddAccentField();
+    }
+
+    private void AddAccentField()
+    {
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var labelPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        labelPanel.Children.Add(new TextBlock
+        {
+            Text = "Акцент",
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("Fg")
+        });
+        labelPanel.Children.Add(new TextBlock
+        {
+            Text = "цвет выделения и кнопок",
+            FontSize = 10,
+            Foreground = (Brush)FindResource("FgMuted"),
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+        Grid.SetColumn(labelPanel, 0);
+        grid.Children.Add(labelPanel);
+
+        var box = new TextBox { Text = _accentHex, FontFamily = new FontFamily("Consolas") };
+        Grid.SetColumn(box, 1);
+        grid.Children.Add(box);
+
+        var swatch = new Border
+        {
+            Width = 34,
+            Height = 34,
+            CornerRadius = new CornerRadius(7),
+            Margin = new Thickness(8, 0, 0, 0),
+            BorderThickness = new Thickness(1),
+            BorderBrush = (Brush)FindResource("BorderBrushDark")
+        };
+        Grid.SetColumn(swatch, 2);
+        grid.Children.Add(swatch);
+
+        _accentField = new Field
+        {
+            Key = "Accent", Label = "Акцент", Hint = "цвет выделения и кнопок",
+            Box = box, Swatch = swatch
+        };
+
+        box.TextChanged += (_, _) =>
+        {
+            _accentHex = box.Text.Trim();
+            UpdateSwatch(_accentField);
+            UpdatePreview();
+        };
+
+        UpdateSwatch(_accentField);
+        PanelFields.Children.Add(grid);
     }
 
     private static bool TryColor(string hex, out Color color)
@@ -124,6 +188,11 @@ public partial class ThemeEditorDialog : Window
         catch { return false; }
     }
 
+    private static string ToHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+
+    private static double Luminance(Color c) =>
+        (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0;
+
     private void UpdateSwatch(Field f)
     {
         if (TryColor(f.Box.Text, out var c))
@@ -138,8 +207,11 @@ public partial class ThemeEditorDialog : Window
         }
     }
 
-    private string Get(string key) =>
-        _fields.First(f => f.Key == key).Box.Text.Trim();
+    private string Get(string key)
+    {
+        if (key == "Accent" && _accentField is not null) return _accentField.Box.Text.Trim();
+        return _fields.First(f => f.Key == key).Box.Text.Trim();
+    }
 
     private void UpdatePreview()
     {
@@ -160,9 +232,10 @@ public partial class ThemeEditorDialog : Window
             PreviewTitle.Foreground = new SolidColorBrush(text);
             PreviewMuted.Foreground = new SolidColorBrush(muted);
 
-            PreviewAccent.Background = new SolidColorBrush(_accent);
+            var accentColor = TryColor(_accentHex, out var ac) ? ac : _accent;
+            PreviewAccent.Background = new SolidColorBrush(accentColor);
             PreviewAccentText.Foreground = new SolidColorBrush(
-                light ? Colors.White : (Color)ColorConverter.ConvertFromString("#08130C"));
+                Luminance(accentColor) > 0.6 ? Colors.Black : Colors.White);
 
             PreviewCard.Background = new SolidColorBrush(panel);
             PreviewCard.BorderBrush = new SolidColorBrush(border);
@@ -219,6 +292,8 @@ public partial class ThemeEditorDialog : Window
             TextMuted = Norm("TextMuted"),
             IsLight = ChkLight.IsChecked == true
         };
+
+        AccentHex = Norm("Accent");
 
         DialogResult = true;
         Close();

@@ -448,6 +448,42 @@ public partial class MainWindow : Window
         SettingsService.Save(_settings);
     }
 
+    // ---------- Неон ----------
+
+    private void BuildNeonSwatches()
+    {
+        ItemsNeon.ItemsSource = ThemeService.NeonVariants.Select(v => new
+        {
+            v.Key,
+            A = (Color)ColorConverter.ConvertFromString(v.A),
+            B = (Color)ColorConverter.ConvertFromString(v.B),
+            Border = (_settings.NeonEnabled &&
+                      string.Equals(v.Key, _settings.NeonVariant, StringComparison.OrdinalIgnoreCase))
+                ? new SolidColorBrush(Colors.White)
+                : new SolidColorBrush(Colors.Transparent)
+        }).ToList();
+    }
+
+    private void NeonSwatch_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string key) return;
+
+        _settings.NeonVariant = key;
+        if (!_settings.NeonEnabled) { _settings.NeonEnabled = true; ChkNeon.IsChecked = true; }
+        ThemeService.ApplyNeon(true, key);
+        BuildNeonSwatches();
+        SettingsService.Save(_settings);
+    }
+
+    private void NeonToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _settings.NeonEnabled = ChkNeon.IsChecked == true;
+        ThemeService.ApplyNeon(_settings.NeonEnabled, _settings.NeonVariant);
+        BuildNeonSwatches();
+        SettingsService.Save(_settings);
+    }
+
     private void BuildBackgroundStyleButtons()
     {
         PanelBgStyles.Children.Clear();
@@ -2634,8 +2670,10 @@ public partial class MainWindow : Window
                 _settings.CustomThemeJson = "";
                 ThemeService.ApplyTheme(_settings.Theme);
                 ThemeService.ApplyAccent(_settings.AccentColor);
-                BuildThemeCards();
-                BuildAccentSwatches();
+        BuildThemeCards();
+        BuildAccentSwatches();
+        BuildNeonSwatches();
+        ChkNeon.IsChecked = _settings.NeonEnabled;
                 BuildBackgroundStyleButtons();
                 ApplyBanner();
                 ApplyWindowBackground();
@@ -2666,6 +2704,9 @@ public partial class MainWindow : Window
         ThemeService.CustomPreset = dlg.Result;
         _settings.CustomThemeJson = System.Text.Json.JsonSerializer.Serialize(dlg.Result);
         _settings.Theme = ThemeService.CustomThemeName;
+
+        if (!string.IsNullOrWhiteSpace(dlg.AccentHex))
+            _settings.AccentColor = dlg.AccentHex;
 
         ThemeService.ApplyTheme(ThemeService.CustomThemeName);
         ThemeService.ApplyAccent(_settings.AccentColor);
@@ -2700,7 +2741,7 @@ public partial class MainWindow : Window
                     "Fabric" => ("#1A2A38", "#38BDF8"),
                     "Forge" => ("#33280F", "#FACC15"),
                     "NeoForge" => ("#2A1F33", "#A78BFA"),
-                    _ => ("#14301F", "#4ADE80")
+                    _ => ("#2A1A40", "#A855F7")
                 };
 
                 var parts = new List<string> { v.SizeDisplay };
@@ -3137,20 +3178,21 @@ public partial class MainWindow : Window
         try
         {
             // Диалог выбора версии — как в Modrinth App
-            var dlg = new ModVersionDialog(_mods, project, inst.McVersion, inst.Loader) { Owner = this };
+            var dlg = new ModVersionDialog(_mods, project, _instances, _selectedInstance) { Owner = this };
             if (dlg.ShowDialog() != true || dlg.SelectedFile is null) return;
 
             var chosen = dlg.SelectedFile;
+            var target = dlg.TargetInstance ?? inst;
 
             var targetDir = SelectedContentType switch
             {
-                ModContentType.ResourcePack => InstanceService.ResourcePacksDir(inst),
-                ModContentType.ShaderPack => InstanceService.ShaderPacksDir(inst),
-                _ => InstanceService.ModsDir(inst)
+                ModContentType.ResourcePack => InstanceService.ResourcePacksDir(target),
+                ModContentType.ShaderPack => InstanceService.ShaderPacksDir(target),
+                _ => InstanceService.ModsDir(target)
             };
 
             var outcome = await _mods.InstallAsync(
-                chosen, targetDir, inst.McVersion, inst.Loader, dlg.InstallDependencies);
+                chosen, targetDir, target.McVersion, target.Loader, dlg.InstallDependencies);
 
             var msg = $"Установлено: {outcome.Installed.Count}";
             if (outcome.Skipped.Count > 0) msg += $"\nПропущено: {string.Join(", ", outcome.Skipped)}";
@@ -4065,13 +4107,14 @@ public partial class MainWindow : Window
             }
 
             var verDlg = new ModVersionDialog(_mods, project,
-                _selectedInstance.McVersion, _selectedInstance.Loader) { Owner = this };
+                _instances, _selectedInstance) { Owner = this };
 
             if (verDlg.ShowDialog() != true || verDlg.SelectedFile is null) return;
 
+            var target = verDlg.TargetInstance ?? _selectedInstance;
             var outcome = await _mods.InstallAsync(
-                verDlg.SelectedFile, InstanceService.ModsDir(_selectedInstance),
-                _selectedInstance.McVersion, _selectedInstance.Loader, verDlg.InstallDependencies);
+                verDlg.SelectedFile, InstanceService.ModsDir(target),
+                target.McVersion, target.Loader, verDlg.InstallDependencies);
 
             var msg = $"Установлено: {outcome.Installed.Count}";
             if (outcome.Failed.Count > 0) msg += $"\nОшибки: {string.Join(", ", outcome.Failed)}";
@@ -4127,6 +4170,7 @@ public partial class MainWindow : Window
     }
 
     private string? _selectedBotId;
+    private string? _lastLanKey;
 
     /// <summary>Отправляет команду выбранному боту или сразу всем.</summary>
     private void SendBot(string command)
@@ -4234,15 +4278,14 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(BotVersionText) && _selectedInstance is not null)
         {
-            // Подставляем версию сборки, а если она новее поддерживаемых — ближайшую рабочую
+            // Подставляем версию сборки, а если она неизвестна mineflayer — пускаем
+            // бота в режиме автоопределения протокола сервера.
             var v = _selectedInstance.McVersion;
-            CbBotVersion.Text = BotService.IsVersionSupported(v)
-                ? v
-                : BotService.SuggestVersion(v) ?? "";
+            CbBotVersion.Text = BotService.IsVersionSupported(v) ? v : "auto";
 
             if (!BotService.IsVersionSupported(v))
-                OnBotOutput($"[внимание] Minecraft {v} пока не поддерживается ботом, " +
-                            $"выбрана {CbBotVersion.Text}.");
+                OnBotOutput($"[внимание] Minecraft {v} пока не поддерживается ботом — " +
+                            "будет использовано автоопределение протокола.");
         }
     }
 
@@ -5124,7 +5167,12 @@ if (dialog.ShowDialog() == true)
         TxtLanStatus.Text = $"Выбран мир «{world.Motd}» — порт {world.Port}. " +
                             "Теперь нажмите «Запустить бота».";
 
-        OnBotOutput($"[lan] найден мир «{world.Motd}» на {TxtBotHost.Text}:{world.Port}");
+        var key = $"{TxtBotHost.Text}:{world.Port}";
+        if (_lastLanKey != key)
+        {
+            _lastLanKey = key;
+            OnBotOutput($"[lan] выбран мир «{world.Motd}» на {TxtBotHost.Text}:{world.Port}");
+        }
     }
 
     private static HashSet<string> GetLocalIps()
@@ -5225,7 +5273,12 @@ if (dialog.ShowDialog() == true)
 
     private void BotLook_Click(object sender, RoutedEventArgs e)
     {
-        if (BotOwner.Length == 0) return;
+        if (BotOwner.Length == 0)
+        {
+            MessageBox.Show("Укажите свой ник в игре — на кого боту смотреть.",
+                "Нужен ник", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         SendBot("look " + BotOwner);
     }
 

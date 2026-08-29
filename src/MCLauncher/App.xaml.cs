@@ -79,6 +79,7 @@ public partial class App : Application
             }
             ThemeService.ApplyTheme(s.Theme);
             ThemeService.ApplyAccent(s.AccentColor);
+            ThemeService.ApplyNeon(s.NeonEnabled, s.NeonVariant);
         }
         catch (Exception ex) { Log.Warn("Не удалось применить тему: " + ex.Message); }
 

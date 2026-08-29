@@ -18,9 +18,11 @@
             <Color x:Key="TextMutedColor">#8B93A3</Color>
             <Color x:Key="DangerColor">#F87171</Color>
 
-            <!-- Неоновые акценты -->
-            <Color x:Key="NeonPinkColor">#FF2D95</Color>
-            <Color x:Key="NeonTurqColor">#19F0D8</Color>
+            <!-- Неоновые акценты (управляются из настроек) -->
+            <Color x:Key="NeonColorA">#FF2D95</Color>
+            <Color x:Key="NeonColorB">#19F0D8</Color>
+            <Color x:Key="NeonGlowColor">#FF2D95</Color>
+            <Color x:Key="NeonGlowColor2">#19F0D8</Color>
 
             <SolidColorBrush x:Key="BgDeep" Color="{StaticResource BgDeepColor}"/>
             <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
@@ -38,20 +40,19 @@
             <SolidColorBrush x:Key="Muted" Color="{StaticResource TextMutedColor}"/>
             <SolidColorBrush x:Key="Border" Color="{StaticResource BorderColor}"/>
 
-            <!-- Вторичный неоновый акцент (бирюза) -->
-            <SolidColorBrush x:Key="Accent2" Color="{StaticResource NeonTurqColor}"/>
+            <!-- Вторичный неоновый акцент (B) -->
+            <SolidColorBrush x:Key="Accent2" Color="{DynamicResource NeonColorB}"/>
 
-            <!-- Градиентная неоновая рамка (розовый -> бирюза) -->
+            <!-- Градиентная неоновая рамка (A -> B) -->
             <LinearGradientBrush x:Key="NeonBorder" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FF2D95" Offset="0"/>
-                <GradientStop Color="#FF63C8" Offset="0.5"/>
-                <GradientStop Color="#19F0D8" Offset="1"/>
+                <GradientStop Color="{DynamicResource NeonColorA}" Offset="0"/>
+                <GradientStop Color="{DynamicResource NeonColorB}" Offset="1"/>
             </LinearGradientBrush>
 
-            <!-- Заливка неоновой кнопки -->
+            <!-- Заливка неоновой кнопки (A -> B) -->
             <LinearGradientBrush x:Key="NeonGrad" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FF2D95" Offset="0"/>
-                <GradientStop Color="#19F0D8" Offset="1"/>
+                <GradientStop Color="{DynamicResource NeonColorA}" Offset="0"/>
+                <GradientStop Color="{DynamicResource NeonColorB}" Offset="1"/>
             </LinearGradientBrush>
 
             <!-- Кибер-фон окна (полупрозрачный — поверх размытого рабочего стола) -->
@@ -116,7 +117,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="14" ShadowDepth="0"
-                                                             Opacity="0.45" Color="#FF2D95"/>
+                                                             Opacity="0.45" Color="{DynamicResource NeonGlowColor}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -155,7 +156,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="18" ShadowDepth="0"
-                                                             Opacity="0.6" Color="#19F0D8"/>
+                                                             Opacity="0.6" Color="{DynamicResource NeonGlowColor2}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -253,7 +254,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="12" ShadowDepth="0"
-                                                             Opacity="0.4" Color="#FF2D95"/>
+                                                             Opacity="0.4" Color="{DynamicResource NeonGlowColor}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -313,7 +314,7 @@
                                             BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
                                             MinWidth="{TemplateBinding ActualWidth}" MaxHeight="320">
                                         <Border.Effect>
-                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="#19F0D8"/>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="{DynamicResource NeonGlowColor2}"/>
                                         </Border.Effect>
                                         <ScrollViewer Margin="4" SnapsToDevicePixels="True">
                                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
@@ -379,7 +380,7 @@
                                     <Setter TargetName="Bd" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect BlurRadius="10" ShadowDepth="0"
-                                                             Opacity="0.35" Color="#19F0D8"/>
+                                                             Opacity="0.35" Color="{DynamicResource NeonGlowColor2}"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>

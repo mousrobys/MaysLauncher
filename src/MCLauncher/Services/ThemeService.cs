@@ -268,6 +268,53 @@ public static class ThemeService
     public static readonly string[] BackgroundStyles = { "Изумруд", "Ночь", "Космос", "Закат", "Графит" };
 
     // =====================================================================
+    //  НЕОН
+    // =====================================================================
+
+    /// <summary>Доступные неоновые палитры: ключ, название, цвет A, цвет B.</summary>
+    public static readonly (string Key, string Name, string A, string B)[] NeonVariants =
+    {
+        ("PinkTurq",   "Розовый + бирюза",  "#FF2D95", "#19F0D8"),
+        ("PurpleCyan", "Фиолет + циан",     "#B14BFF", "#19D3F0"),
+        ("AcidGreen",  "Кислотный зелёный", "#39FF14", "#00E5FF"),
+        ("GoldRose",   "Золото + розовый",  "#FF9D00", "#FF3D81"),
+        ("Ice",        "Ледяной",           "#5BC0FF", "#B388FF"),
+        ("RedBlue",    "Красный + синий",   "#FF3B6B", "#3B82F6")
+    };
+
+    /// <summary>
+    /// Применяет неоновую палитру. При <paramref name="enabled"/>=false свечение
+    /// отключается, а рамки становятся нейтрально-серыми.
+    /// </summary>
+    public static void ApplyNeon(bool enabled, string variant)
+    {
+        var res = Application.Current?.Resources;
+        if (res is null) return;
+
+        var v = NeonVariants.FirstOrDefault(x =>
+                    string.Equals(x.Key, variant, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrEmpty(v.Key)) v = NeonVariants[0];
+
+        if (!enabled)
+        {
+            var neutral = (Color)ColorConverter.ConvertFromString("#3A4150");
+            res["NeonColorA"]   = Freeze(new SolidColorBrush(neutral));
+            res["NeonColorB"]   = Freeze(new SolidColorBrush(neutral));
+            res["NeonGlowColor"]   = Freeze(new SolidColorBrush(Colors.Transparent));
+            res["NeonGlowColor2"]  = Freeze(new SolidColorBrush(Colors.Transparent));
+            return;
+        }
+
+        var ca = (Color)ColorConverter.ConvertFromString(v.A);
+        var cb = (Color)ColorConverter.ConvertFromString(v.B);
+
+        res["NeonColorA"]   = Freeze(new SolidColorBrush(ca));
+        res["NeonColorB"]   = Freeze(new SolidColorBrush(cb));
+        res["NeonGlowColor"]   = Freeze(new SolidColorBrush(ca));
+        res["NeonGlowColor2"]  = Freeze(new SolidColorBrush(cb));
+    }
+
+    // =====================================================================
     //  ХЕЛПЕРЫ
     // =====================================================================
 
